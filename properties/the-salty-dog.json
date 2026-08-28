@@ -1,1 +1,30 @@
-{"slug":"the-salty-dog","name":"The Salty Dog","destination":"Navarre","type":"Home","guests":10,"bedrooms":3,"bathrooms":2,"tags":["pet-friendly","near-beach","family"],"headline":"Pet-friendly family home four miles from Navarre Beach","summary":"A newer three-bedroom home created for families, groups, and four-legged guests, with a fenced backyard, beach gear, games, and room for up to ten.","highlights":["Fully fenced backyard","Pet-friendly extras","Beach gear included","Smart TVs","Fully stocked kitchen"],"airbnb":"https://www.airbnb.com/rooms/1738767798143337487","image":"https://a0.muscache.com/im/pictures/hosting/Hosting-1738767798143337487/original/61c84d91-4c81-43f9-9adf-7fe19a4279bd.jpeg?im_w=1200"}
+{
+  "slug": "the-salty-dog",
+  "name": "The Salty Dog",
+  "destination": "Navarre",
+  "type": "Home",
+  "guests": 10,
+  "bedrooms": 3,
+  "bathrooms": 2,
+  "tags": [
+    "pet-friendly",
+    "near-beach",
+    "family"
+  ],
+  "headline": "Pet-friendly family home four miles from Navarre Beach",
+  "summary": "A newer three-bedroom home created for families, groups, and four-legged guests, with a fenced backyard, beach gear, games, and room for up to ten.",
+  "highlights": [
+    "Fully fenced backyard",
+    "Pet-friendly extras",
+    "Beach gear included",
+    "Smart TVs",
+    "Fully stocked kitchen"
+  ],
+  "airbnb": "https://www.airbnb.com/rooms/1738767798143337487",
+  "image": "/assets/properties/the-salty-dog/01.jpg",
+  "gallery": [
+    "/assets/properties/the-salty-dog/01.jpg",
+    "/assets/properties/the-salty-dog/02.jpg",
+    "/assets/properties/the-salty-dog/03.jpg"
+  ]
+}
