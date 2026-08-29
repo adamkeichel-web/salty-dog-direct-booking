@@ -31,5 +31,15 @@
     "/assets/properties/waterfront-paradise/06.jpg",
     "/assets/properties/waterfront-paradise/07.jpg",
     "/assets/properties/waterfront-paradise/08.jpg"
-  ]
+  ],
+  "reviews": {
+    "rating": 4.88,
+    "count": 169,
+    "themes": [
+      "the waterfront view",
+      "location",
+      "hospitality",
+      "cleanliness"
+    ]
+  }
 }
