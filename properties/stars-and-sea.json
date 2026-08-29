@@ -30,5 +30,15 @@
     "/assets/properties/stars-and-sea/05.jpg",
     "/assets/properties/stars-and-sea/06.jpg",
     "/assets/properties/stars-and-sea/07.jpg"
-  ]
+  ],
+  "reviews": {
+    "rating": 4.96,
+    "count": 113,
+    "themes": [
+      "hospitality",
+      "cleanliness",
+      "the pool",
+      "the view"
+    ]
+  }
 }
