@@ -31,5 +31,9 @@
     "/assets/properties/the-salty-dog/06.jpg",
     "/assets/properties/the-salty-dog/07.jpg",
     "/assets/properties/the-salty-dog/08.jpg"
-  ]
+  ],
+  "reviews": {
+    "count": 1,
+    "note": "A newly launched stay hosted by an experienced Airbnb Superhost."
+  }
 }
