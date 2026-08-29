@@ -31,5 +31,15 @@
     "/assets/properties/beachfront-bliss/06.jpg",
     "/assets/properties/beachfront-bliss/07.jpg",
     "/assets/properties/beachfront-bliss/08.jpg"
-  ]
+  ],
+  "reviews": {
+    "rating": 5,
+    "count": 19,
+    "themes": [
+      "the Gulf views",
+      "beach access",
+      "cleanliness",
+      "comfort"
+    ]
+  }
 }
