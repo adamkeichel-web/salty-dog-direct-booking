@@ -21,6 +21,7 @@
     "Fully stocked kitchen"
   ],
   "airbnb": "https://www.airbnb.com/rooms/1738767798143337487",
+  "reviews": {"count": 1, "note": "A newly launched stay hosted by an experienced Airbnb Superhost.", "testimonial": {"guest": "Deja", "stars": 5, "quote": "The property was spacious, very clean, and so inviting. The beach items were a great addition and came in handy."}},
   "image": "/assets/properties/the-salty-dog/01.jpg",
   "gallery": [
     "/assets/properties/the-salty-dog/01.jpg",
@@ -31,9 +32,5 @@
     "/assets/properties/the-salty-dog/06.jpg",
     "/assets/properties/the-salty-dog/07.jpg",
     "/assets/properties/the-salty-dog/08.jpg"
-  ],
-  "reviews": {
-    "count": 1,
-    "note": "A newly launched stay hosted by an experienced Airbnb Superhost."
-  }
+  ]
 }
