@@ -107,7 +107,7 @@ export default{
       const tax=Math.round(subtotal*Number(property.taxRate||0));
       const total=subtotal+tax;
       if(!Number.isSafeInteger(total)||total<50)return json({error:"This quote could not be calculated."},500);
-      const success=`${url.origin}/booking-success.html?session_id={CHECKOUT_SESSION_ID}`;
+      const success=`${url.origin}/booking-success?session_id={CHECKOUT_SESSION_ID}`;
       const cancel=`${url.origin}/property.html?stay=${encodeURIComponent(slug)}&checkin=${checkin}&checkout=${checkout}&guests=${guestCount}`;
       const stripe=await fetch("https://api.stripe.com/v1/checkout/sessions",{
         method:"POST",
