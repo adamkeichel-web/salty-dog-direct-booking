@@ -21,6 +21,7 @@
     "Minutes to Okaloosa Island"
   ],
   "airbnb": "https://www.airbnb.com/rooms/931232980991342795",
+  "reviews": {"rating": 4.96, "count": 113, "themes": ["hospitality", "cleanliness", "the pool", "the view"], "testimonial": {"guest": "Amy", "stars": 5, "quote": "The property was clean, beautiful, and had the most incredible view. We felt right at home and couldn’t have asked for a better experience."}},
   "image": "/assets/properties/stars-and-sea/01.jpg",
   "gallery": [
     "/assets/properties/stars-and-sea/01.jpg",
@@ -30,15 +31,5 @@
     "/assets/properties/stars-and-sea/05.jpg",
     "/assets/properties/stars-and-sea/06.jpg",
     "/assets/properties/stars-and-sea/07.jpg"
-  ],
-  "reviews": {
-    "rating": 4.96,
-    "count": 113,
-    "themes": [
-      "hospitality",
-      "cleanliness",
-      "the pool",
-      "the view"
-    ]
-  }
+  ]
 }
