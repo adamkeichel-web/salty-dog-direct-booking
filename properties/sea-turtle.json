@@ -1,0 +1,35 @@
+{
+  "slug": "sea-turtle",
+  "name": "Sea Turtle",
+  "destination": "Navarre",
+  "type": "Home",
+  "guests": 10,
+  "bedrooms": 4,
+  "bathrooms": 2,
+  "tags": [
+    "pool",
+    "game-room",
+    "family"
+  ],
+  "headline": "Heated pool and game room two miles from Navarre Beach",
+  "summary": "A four-bedroom, two-bath home in a quiet Navarre neighborhood with two king beds, a bunk room, heated pool, and family game space.",
+  "highlights": [
+    "Two miles to the beach",
+    "Heated pool",
+    "Game room",
+    "Two king beds",
+    "Quiet neighborhood"
+  ],
+  "airbnb": "https://www.airbnb.com/rooms/41233102",
+  "image": "/assets/properties/sea-turtle/01.jpg",
+  "gallery": [
+    "/assets/properties/sea-turtle/01.jpg",
+    "/assets/properties/sea-turtle/02.jpg",
+    "/assets/properties/sea-turtle/03.jpg",
+    "/assets/properties/sea-turtle/04.jpg",
+    "/assets/properties/sea-turtle/05.jpg",
+    "/assets/properties/sea-turtle/06.jpg",
+    "/assets/properties/sea-turtle/07.jpg",
+    "/assets/properties/sea-turtle/08.jpg"
+  ]
+}
