@@ -1,9 +1,1 @@
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "salty-dog-direct-booking",
-  "compatibility_date": "2026-08-28",
-  "assets": {
-    "directory": ".",
-    "not_found_handling": "single-page-application"
-  }
-}
+{"$schema":"node_modules/wrangler/config-schema.json","name":"salty-dog-direct-booking","main":"worker.js","compatibility_date":"2026-08-28","assets":{"directory":".","binding":"ASSETS","not_found_handling":"single-page-application"}}
