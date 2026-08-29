@@ -52,6 +52,51 @@ function formEncode(values){
   return body;
 }
 
+function hex(bytes){return [...new Uint8Array(bytes)].map(value=>value.toString(16).padStart(2,"0")).join("")}
+
+function safeEqual(a,b){
+  if(a.length!==b.length)return false;
+  let result=0;
+  for(let i=0;i<a.length;i++)result|=a.charCodeAt(i)^b.charCodeAt(i);
+  return result===0;
+}
+
+async function validStripeSignature(payload,header,secret){
+  if(!header||!secret)return false;
+  const parts=header.split(",").map(part=>part.split("="));
+  const timestamp=parts.find(([key])=>key==="t")?.[1];
+  const signatures=parts.filter(([key])=>key==="v1").map(([,value])=>value);
+  if(!timestamp||!signatures.length||Math.abs(Date.now()/1000-Number(timestamp))>300)return false;
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const signature=hex(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(`${timestamp}.${payload}`)));
+  return signatures.some(candidate=>safeEqual(signature,candidate));
+}
+
+function requireDatabase(env){
+  if(!env.BOOKINGS_DB)throw new Error("Booking database is not configured");
+  return env.BOOKINGS_DB;
+}
+
+async function directRanges(env,slug){
+  if(!env.BOOKINGS_DB)return [];
+  const result=await env.BOOKINGS_DB.prepare(`
+    SELECT checkin AS start, checkout AS end FROM bookings
+    WHERE property_slug = ?1 AND (status = 'paid' OR (status = 'pending' AND julianday(expires_at) > julianday('now')))
+    ORDER BY checkin
+  `).bind(slug).all();
+  return result.results||[];
+}
+
+function icalDate(value){return String(value).replaceAll("-","")}
+
+function directIcal(slug,ranges,origin){
+  const events=ranges.map(range=>[
+    "BEGIN:VEVENT",`UID:${range.id}@${new URL(origin).hostname}`,`DTSTART;VALUE=DATE:${icalDate(range.start)}`,
+    `DTEND;VALUE=DATE:${icalDate(range.end)}`,"SUMMARY:Reserved","STATUS:CONFIRMED","END:VEVENT"
+  ].join("\r\n")).join("\r\n");
+  return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Salty Dog & Co.//Direct Bookings//EN",`X-WR-CALNAME:${slug} direct bookings`,events,"END:VCALENDAR",""] .join("\r\n");
+}
+
 async function unavailableRanges(env,slug){
   let feeds={};
   try{feeds=JSON.parse(env.ICAL_FEEDS||"{}")}catch{}
@@ -69,6 +114,28 @@ function overlaps(ranges,start,end){
 export default{
   async fetch(request,env,ctx){
     const url=new URL(request.url);
+    if(url.pathname==="/api/stripe/webhook"&&request.method==="POST"){
+      const payload=await request.text();
+      if(!await validStripeSignature(payload,request.headers.get("Stripe-Signature"),env.STRIPE_WEBHOOK_SECRET))return json({error:"Invalid signature"},400);
+      let event;
+      try{event=JSON.parse(payload)}catch{return json({error:"Invalid payload"},400)}
+      const session=event.data?.object,bookingId=session?.metadata?.booking_id;
+      if(bookingId&&env.BOOKINGS_DB){
+        if(event.type==="checkout.session.completed"&&session.payment_status==="paid"){
+          await env.BOOKINGS_DB.prepare(`UPDATE bookings SET status='paid', paid_at=datetime('now'), amount_total=?1, currency=?2 WHERE id=?3 AND status='pending'`).bind(session.amount_total||0,session.currency||"usd",bookingId).run();
+        }else if(event.type==="checkout.session.expired"){
+          await env.BOOKINGS_DB.prepare(`UPDATE bookings SET status='expired' WHERE id=?1 AND status='pending'`).bind(bookingId).run();
+        }
+      }
+      return json({received:true});
+    }
+    if(url.pathname.startsWith("/api/calendar/direct/")&&url.pathname.endsWith(".ics")){
+      const slug=decodeURIComponent(url.pathname.slice("/api/calendar/direct/".length,-4));
+      if(!allowedProperties.has(slug))return new Response("Not found",{status:404});
+      const db=requireDatabase(env);
+      const result=await db.prepare(`SELECT id, checkin AS start, checkout AS end FROM bookings WHERE property_slug=?1 AND status='paid' ORDER BY checkin`).bind(slug).all();
+      return new Response(directIcal(slug,result.results||[],url.origin),{headers:{"Content-Type":"text/calendar; charset=utf-8","Cache-Control":"no-store"}});
+    }
     if(url.pathname.startsWith("/api/direct-booking/config/")){
       const slug=decodeURIComponent(url.pathname.slice("/api/direct-booking/config/".length));
       if(!allowedProperties.has(slug))return json({error:"Property not found"},404);
@@ -84,6 +151,8 @@ export default{
     }
     if(url.pathname==="/api/direct-booking/checkout"&&request.method==="POST"){
       if(!env.STRIPE_SECRET_KEY)return json({error:"Direct booking is not active yet."},503);
+      let db;
+      try{db=requireDatabase(env)}catch{return json({error:"The booking database is not active yet."},503)}
       const origin=request.headers.get("Origin");
       if(origin&&origin!==url.origin)return json({error:"Invalid request origin."},403);
       let input;
@@ -107,6 +176,16 @@ export default{
       const tax=Math.round(subtotal*Number(property.taxRate||0));
       const total=subtotal+tax;
       if(!Number.isSafeInteger(total)||total<50)return json({error:"This quote could not be calculated."},500);
+      const bookingId=crypto.randomUUID(),expiresAt=new Date(Date.now()+30*60*1000).toISOString();
+      const hold=await db.prepare(`
+        INSERT INTO bookings (id,property_slug,checkin,checkout,guests,email,status,expires_at)
+        SELECT ?1,?2,?3,?4,?5,?6,'pending',?7
+        WHERE NOT EXISTS (
+          SELECT 1 FROM bookings WHERE property_slug=?2 AND checkout>?3 AND checkin<?4
+          AND (status='paid' OR (status='pending' AND julianday(expires_at)>julianday('now')))
+        )
+      `).bind(bookingId,slug,checkin,checkout,guestCount,email,expiresAt).run();
+      if(!hold.meta?.changes)return json({error:"Those dates are being reserved by another guest. Please choose different dates."},409);
       const success=`${url.origin}/booking-success?session_id={CHECKOUT_SESSION_ID}`;
       const cancel=`${url.origin}/property.html?stay=${encodeURIComponent(slug)}&checkin=${checkin}&checkout=${checkout}&guests=${guestCount}`;
       const stripe=await fetch("https://api.stripe.com/v1/checkout/sessions",{
@@ -119,11 +198,12 @@ export default{
           "line_items[0][price_data][product_data][description]":`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,
           "line_items[0][price_data][unit_amount]":total,
           "line_items[0][quantity]":1,
-          "metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount
+          "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount
         })
       });
       const session=await stripe.json();
-      if(!stripe.ok||!session.url)return json({error:"Secure checkout could not be started. Please try again."},502);
+      if(!stripe.ok||!session.url){await db.prepare("UPDATE bookings SET status='expired' WHERE id=?1").bind(bookingId).run();return json({error:"Secure checkout could not be started. Please try again."},502)}
+      await db.prepare("UPDATE bookings SET stripe_session_id=?1 WHERE id=?2").bind(session.id,bookingId).run();
       return json({url:session.url});
     }
     if(url.pathname.startsWith("/api/calendar/")){
@@ -132,14 +212,14 @@ export default{
       try{feeds=JSON.parse(env.ICAL_FEEDS||"{}")}catch{}
       const feed=feeds[slug];
       if(!feed)return json({error:"Calendar unavailable"},503);
-      const cache=caches.default,cached=await cache.match(request);
+      const cache=caches.default,cached=env.BOOKINGS_DB?null:await cache.match(request);
       if(cached)return cached;
       try{
         const upstream=await fetch(feed,{headers:{"User-Agent":"Salty-Dog-Calendar/1.0"}});
         if(!upstream.ok)throw new Error("Airbnb calendar request failed");
-        const body={ranges:parseIcal(await upstream.text()),updatedAt:new Date().toISOString()};
-        const response=Response.json(body,{headers:{"Cache-Control":"public, max-age=900","X-Content-Type-Options":"nosniff"}});
-        ctx.waitUntil(cache.put(request,response.clone()));
+        const body={ranges:[...parseIcal(await upstream.text()),...await directRanges(env,slug)],updatedAt:new Date().toISOString()};
+        const response=Response.json(body,{headers:{"Cache-Control":env.BOOKINGS_DB?"public, max-age=30":"public, max-age=900","X-Content-Type-Options":"nosniff"}});
+        if(!env.BOOKINGS_DB)ctx.waitUntil(cache.put(request,response.clone()));
         return response;
       }catch{
         return Response.json({error:"Calendar temporarily unavailable"},{status:502,headers:{"Cache-Control":"no-store"}});
