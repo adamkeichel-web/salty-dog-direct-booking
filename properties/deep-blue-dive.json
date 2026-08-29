@@ -31,5 +31,15 @@
     "/assets/properties/deep-blue-dive/06.jpg",
     "/assets/properties/deep-blue-dive/07.jpg",
     "/assets/properties/deep-blue-dive/08.jpg"
-  ]
+  ],
+  "reviews": {
+    "rating": 4.97,
+    "count": 78,
+    "themes": [
+      "the pool",
+      "family-friendly spaces",
+      "hospitality",
+      "comfort"
+    ]
+  }
 }
