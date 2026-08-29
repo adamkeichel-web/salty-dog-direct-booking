@@ -31,5 +31,15 @@
     "/assets/properties/seaside-vibes/06.jpg",
     "/assets/properties/seaside-vibes/07.jpg",
     "/assets/properties/seaside-vibes/08.jpg"
-  ]
+  ],
+  "reviews": {
+    "rating": 4.94,
+    "count": 34,
+    "themes": [
+      "the waterfront view",
+      "hospitality",
+      "location",
+      "cleanliness"
+    ]
+  }
 }
