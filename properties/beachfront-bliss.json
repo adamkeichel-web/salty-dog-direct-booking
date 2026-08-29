@@ -21,6 +21,7 @@
     "Private balcony"
   ],
   "airbnb": "https://www.airbnb.com/rooms/1557348175835489117",
+  "reviews": {"rating": 5.0, "count": 20, "themes": ["the Gulf views", "beach access", "cleanliness", "comfort"], "testimonial": {"guest": "Paige", "stars": 5, "quote": "We absolutely loved staying at this truly fully stocked condo with an incredible view! Can’t wait to book again!"}},
   "image": "/assets/properties/beachfront-bliss/01.jpg",
   "gallery": [
     "/assets/properties/beachfront-bliss/01.jpg",
@@ -31,15 +32,5 @@
     "/assets/properties/beachfront-bliss/06.jpg",
     "/assets/properties/beachfront-bliss/07.jpg",
     "/assets/properties/beachfront-bliss/08.jpg"
-  ],
-  "reviews": {
-    "rating": 5,
-    "count": 19,
-    "themes": [
-      "the Gulf views",
-      "beach access",
-      "cleanliness",
-      "comfort"
-    ]
-  }
+  ]
 }
