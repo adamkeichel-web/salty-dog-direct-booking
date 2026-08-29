@@ -31,5 +31,15 @@
     "/assets/properties/sea-turtle/06.jpg",
     "/assets/properties/sea-turtle/07.jpg",
     "/assets/properties/sea-turtle/08.jpg"
-  ]
+  ],
+  "reviews": {
+    "rating": 4.82,
+    "count": 11,
+    "themes": [
+      "hospitality",
+      "the pool",
+      "location",
+      "cleanliness"
+    ]
+  }
 }
