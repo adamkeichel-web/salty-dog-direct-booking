@@ -1,0 +1,35 @@
+{
+  "slug": "stars-and-sea",
+  "name": "Stars & Sea",
+  "destination": "Fort Walton Beach",
+  "type": "Condo",
+  "guests": 4,
+  "bedrooms": 1,
+  "bathrooms": 1,
+  "tags": [
+    "waterfront",
+    "pool",
+    "pet-friendly"
+  ],
+  "headline": "Ground-floor waterfront condo steps from the resort pool",
+  "summary": "A remodeled condo on Santa Rosa Sound with sunset and marina views, a queen bed, queen memory-foam sofa bed, kitchenette, and pet-friendly policy.",
+  "highlights": [
+    "Waterfront sunsets",
+    "Shared resort pool",
+    "Pet-friendly",
+    "Ground-floor access",
+    "Minutes to Okaloosa Island"
+  ],
+  "airbnb": "https://www.airbnb.com/rooms/931232980991342795",
+  "reviews": {"rating": 4.96, "count": 113, "themes": ["hospitality", "cleanliness", "the pool", "the view"], "testimonial": {"guest": "Amy", "stars": 5, "quote": "The property was clean, beautiful, and had the most incredible view. We felt right at home and couldn’t have asked for a better experience."}},
+  "image": "/assets/properties/stars-and-sea/01.jpg",
+  "gallery": [
+    "/assets/properties/stars-and-sea/01.jpg",
+    "/assets/properties/stars-and-sea/02.jpg",
+    "/assets/properties/stars-and-sea/03.jpg",
+    "/assets/properties/stars-and-sea/04.jpg",
+    "/assets/properties/stars-and-sea/05.jpg",
+    "/assets/properties/stars-and-sea/06.jpg",
+    "/assets/properties/stars-and-sea/07.jpg"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "seaside-vibes",
+  "name": "Seaside Vibes",
+  "destination": "Fort Walton Beach",
+  "type": "Condo",
+  "guests": 4,
+  "bedrooms": 1,
+  "bathrooms": 1,
+  "tags": [
+    "waterfront",
+    "pool",
+    "couples"
+  ],
+  "headline": "Fourth-floor waterfront condo overlooking Santa Rosa Sound",
+  "summary": "An updated Pirates Bay condo with elevator access, pool and marina views, a queen bed, queen sleeper sofa, and walkable waterfront dining.",
+  "highlights": [
+    "Santa Rosa Sound views",
+    "Shared pool",
+    "Marina views",
+    "Elevator access",
+    "Walkable dining"
+  ],
+  "airbnb": "https://www.airbnb.com/rooms/1348764785597345486",
+  "reviews": {"rating": 4.94, "count": 34, "themes": ["the waterfront view", "hospitality", "location", "cleanliness"], "testimonial": {"guest": "Zykeria", "stars": 5, "quote": "Perfect place for a couple’s getaway—quiet, great view, and the place had everything we needed."}},
+  "image": "/assets/properties/seaside-vibes/01.jpg",
+  "gallery": [
+    "/assets/properties/seaside-vibes/01.jpg",
+    "/assets/properties/seaside-vibes/02.jpg",
+    "/assets/properties/seaside-vibes/03.jpg",
+    "/assets/properties/seaside-vibes/04.jpg",
+    "/assets/properties/seaside-vibes/05.jpg",
+    "/assets/properties/seaside-vibes/06.jpg",
+    "/assets/properties/seaside-vibes/07.jpg",
+    "/assets/properties/seaside-vibes/08.jpg"
+  ]
+}

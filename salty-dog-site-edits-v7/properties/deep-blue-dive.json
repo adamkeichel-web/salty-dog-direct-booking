@@ -1,0 +1,36 @@
+{
+  "slug": "deep-blue-dive",
+  "name": "Deep Blue Dive",
+  "destination": "Navarre",
+  "type": "Home",
+  "guests": 18,
+  "bedrooms": 4,
+  "bathrooms": 2,
+  "tags": [
+    "pool",
+    "game-room",
+    "large-groups"
+  ],
+  "headline": "Heated saltwater pool, game room, and space for large groups",
+  "summary": "A four-bedroom Navarre family getaway six miles from the beach, with an enclosed heated saltwater pool and an oversized game room.",
+  "highlights": [
+    "Heated saltwater pool",
+    "Pool table and air hockey",
+    "Ping pong and arcade",
+    "PS5 and VR headset",
+    "Beach gear included"
+  ],
+  "airbnb": "https://www.airbnb.com/rooms/1182611772491385622",
+  "reviews": {"rating": 4.97, "count": 78, "themes": ["the pool", "family-friendly spaces", "hospitality", "comfort"], "testimonial": {"guest": "Brianna", "stars": 5, "quote": "Couldn’t have asked for a better peaceful place to stay on family vacation. The house had everything we could have needed or wanted!"}},
+  "image": "/assets/properties/deep-blue-dive/01.jpg",
+  "gallery": [
+    "/assets/properties/deep-blue-dive/01.jpg",
+    "/assets/properties/deep-blue-dive/02.jpg",
+    "/assets/properties/deep-blue-dive/03.jpg",
+    "/assets/properties/deep-blue-dive/04.jpg",
+    "/assets/properties/deep-blue-dive/05.jpg",
+    "/assets/properties/deep-blue-dive/06.jpg",
+    "/assets/properties/deep-blue-dive/07.jpg",
+    "/assets/properties/deep-blue-dive/08.jpg"
+  ]
+}

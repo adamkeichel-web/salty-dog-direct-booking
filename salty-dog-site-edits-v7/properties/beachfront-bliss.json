@@ -1,0 +1,36 @@
+{
+  "slug": "beachfront-bliss",
+  "name": "Beachfront Bliss",
+  "destination": "Navarre Beach",
+  "type": "Condo",
+  "guests": 7,
+  "bedrooms": 2,
+  "bathrooms": 2,
+  "tags": [
+    "beachfront",
+    "pool",
+    "family"
+  ],
+  "headline": "Fifth-floor Gulf-front condo with private beach access",
+  "summary": "Panoramic Gulf views, a king primary suite, queen-and-twin guest room, queen sleeper sofa, heated pool, fitness center, and private balcony.",
+  "highlights": [
+    "Direct Gulf frontage",
+    "Private beach access",
+    "Heated pool",
+    "Fitness center",
+    "Private balcony"
+  ],
+  "airbnb": "https://www.airbnb.com/rooms/1557348175835489117",
+  "reviews": {"rating": 5.0, "count": 20, "themes": ["the Gulf views", "beach access", "cleanliness", "comfort"], "testimonial": {"guest": "Paige", "stars": 5, "quote": "We absolutely loved staying at this truly fully stocked condo with an incredible view! Can’t wait to book again!"}},
+  "image": "/assets/properties/beachfront-bliss/01.jpg",
+  "gallery": [
+    "/assets/properties/beachfront-bliss/01.jpg",
+    "/assets/properties/beachfront-bliss/02.jpg",
+    "/assets/properties/beachfront-bliss/03.jpg",
+    "/assets/properties/beachfront-bliss/04.jpg",
+    "/assets/properties/beachfront-bliss/05.jpg",
+    "/assets/properties/beachfront-bliss/06.jpg",
+    "/assets/properties/beachfront-bliss/07.jpg",
+    "/assets/properties/beachfront-bliss/08.jpg"
+  ]
+}
