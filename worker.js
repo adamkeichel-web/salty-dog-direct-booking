@@ -146,6 +146,7 @@ export default{
         nightlyRate:enabled?property.nightlyRate:null,
         cleaningFee:enabled?(property.cleaningFee||0):null,
         taxRate:enabled?(property.taxRate||0):null,
+        showCalendarPricing:enabled&&property.showCalendarPricing===true,
         currency:"usd"
       });
     }
