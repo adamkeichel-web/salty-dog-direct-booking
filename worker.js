@@ -36,6 +36,14 @@ function getBookingConfig(env){
   try{return JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{return {}}
 }
 
+function otherFees(property){
+  if(!Array.isArray(property?.otherFees))return [];
+  return property.otherFees.map(fee=>({
+    name:String(fee?.name||"Other fee").trim().slice(0,80),
+    amount:Number(fee?.amount||0)
+  })).filter(fee=>fee.name&&Number.isFinite(fee.amount)&&fee.amount>0);
+}
+
 function dateValue(value){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(value||""))return null;
   const date=new Date(`${value}T00:00:00Z`);
@@ -145,6 +153,7 @@ export default{
         enabled,
         nightlyRate:enabled?property.nightlyRate:null,
         cleaningFee:enabled?(property.cleaningFee||0):null,
+        otherFees:enabled?otherFees(property):[],
         taxRate:enabled?(property.taxRate||0):null,
         showCalendarPricing:enabled&&property.showCalendarPricing===true,
         currency:"usd"
@@ -173,7 +182,9 @@ export default{
       }catch{return json({error:"We could not confirm availability. Please try again shortly."},503)}
       const nightly=Math.round(Number(property.nightlyRate)*100);
       const cleaning=Math.round(Number(property.cleaningFee||0)*100);
-      const subtotal=nightly*nights+cleaning;
+      const fees=otherFees(property).map(fee=>({...fee,amountCents:Math.round(fee.amount*100)}));
+      const otherFeesTotal=fees.reduce((sum,fee)=>sum+fee.amountCents,0);
+      const subtotal=nightly*nights+cleaning+otherFeesTotal;
       const tax=Math.round(subtotal*Number(property.taxRate||0));
       const total=subtotal+tax;
       if(!Number.isSafeInteger(total)||total<50)return json({error:"This quote could not be calculated."},500);
@@ -189,18 +200,27 @@ export default{
       if(!hold.meta?.changes)return json({error:"Those dates are being reserved by another guest. Please choose different dates."},409);
       const success=`${url.origin}/booking-success?session_id={CHECKOUT_SESSION_ID}`;
       const cancel=`${url.origin}/property.html?stay=${encodeURIComponent(slug)}&checkin=${checkin}&checkout=${checkout}&guests=${guestCount}`;
+      const lineItems=[
+        {name:`${property.name||slug} · Nightly lodging`,description:`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,amount:nightly,quantity:nights}
+      ];
+      if(cleaning>0)lineItems.push({name:"Cleaning fee",amount:cleaning,quantity:1});
+      for(const fee of fees)lineItems.push({name:fee.name,amount:fee.amountCents,quantity:1});
+      if(tax>0)lineItems.push({name:"Estimated taxes",amount:tax,quantity:1});
+      const stripeValues={
+        mode:"payment",success_url:success,cancel_url:cancel,customer_email:email,
+        "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount
+      };
+      lineItems.forEach((item,index)=>{
+        stripeValues[`line_items[${index}][price_data][currency]`]="usd";
+        stripeValues[`line_items[${index}][price_data][product_data][name]`]=item.name;
+        if(item.description)stripeValues[`line_items[${index}][price_data][product_data][description]`]=item.description;
+        stripeValues[`line_items[${index}][price_data][unit_amount]`]=item.amount;
+        stripeValues[`line_items[${index}][quantity]`]=item.quantity;
+      });
       const stripe=await fetch("https://api.stripe.com/v1/checkout/sessions",{
         method:"POST",
         headers:{Authorization:`Bearer ${env.STRIPE_SECRET_KEY}`,"Content-Type":"application/x-www-form-urlencoded"},
-        body:formEncode({
-          mode:"payment",success_url:success,cancel_url:cancel,customer_email:email,
-          "line_items[0][price_data][currency]":"usd",
-          "line_items[0][price_data][product_data][name]":`${property.name||slug} · ${nights} night${nights===1?"":"s"}`,
-          "line_items[0][price_data][product_data][description]":`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,
-          "line_items[0][price_data][unit_amount]":total,
-          "line_items[0][quantity]":1,
-          "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount
-        })
+        body:formEncode(stripeValues)
       });
       const session=await stripe.json();
       if(!stripe.ok||!session.url){await db.prepare("UPDATE bookings SET status='expired' WHERE id=?1").bind(bookingId).run();return json({error:"Secure checkout could not be started. Please try again."},502)}
