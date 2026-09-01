@@ -51,7 +51,7 @@ async function findAvailable(){
   availableSlugs=new Set(checks.filter(Boolean));
   grid.removeAttribute('aria-busy');searchButton.disabled=false;searchButton.textContent='Search Stays →';render();stays.scrollIntoView({behavior:'smooth'});
 }
-Promise.all(slugs.map(s=>fetch(`/properties/${s}.json`).then(r=>r.json()))).then(data=>{properties=data;render()});
+Promise.all(slugs.map(s=>fetch(`/api/properties/${s}`).then(r=>r.json()))).then(data=>{properties=data;render()});
 filters.onclick=e=>{const b=e.target.closest('[data-filter]');if(!b)return;activeFilter=b.dataset.filter;filters.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));render();stays.scrollIntoView({behavior:'smooth'})};
 searchForm.onsubmit=e=>{e.preventDefault();findAvailable()};
 </script>

@@ -36,12 +36,75 @@ function getBookingConfig(env){
   try{return JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{return {}}
 }
 
+async function storedSettings(env,slug){
+  if(!env.BOOKINGS_DB)return {};
+  try{
+    const row=await env.BOOKINGS_DB.prepare("SELECT settings_json FROM property_settings WHERE slug=?1").bind(slug).first();
+    return row?.settings_json?JSON.parse(row.settings_json):{};
+  }catch{return {}}
+}
+
+async function propertyConfig(env,slug){
+  const base=getBookingConfig(env)[slug]||{},stored=await storedSettings(env,slug);
+  return {...base,...(stored.pricing||{})};
+}
+
+function adminEmail(request,env){
+  const email=(request.headers.get("Cf-Access-Authenticated-User-Email")||"").toLowerCase();
+  const allowed=String(env.ADMIN_EMAIL||"").toLowerCase().split(",").map(value=>value.trim()).filter(Boolean);
+  return email&&allowed.includes(email)?email:null;
+}
+
+function cleanSettings(input){
+  const text=(value,max=4000)=>String(value??"").replace(/[<>]/g,"").trim().slice(0,max),number=value=>{const parsed=Number(value);return Number.isFinite(parsed)&&parsed>=0?parsed:0};
+  const source=input?.content||{},pricing=input?.pricing||{};
+  return {content:{
+    name:text(source.name,120),destination:text(source.destination,80),type:text(source.type,80),headline:text(source.headline,220),summary:text(source.summary),goodToKnow:text(source.goodToKnow),airbnb:text(source.airbnb,500),
+    guests:number(source.guests),bedrooms:number(source.bedrooms),bathrooms:number(source.bathrooms),
+    highlights:(Array.isArray(source.highlights)?source.highlights:[]).map(value=>text(value,160)).filter(Boolean).slice(0,30),
+    tags:(Array.isArray(source.tags)?source.tags:[]).map(value=>text(value,60).toLowerCase()).filter(Boolean).slice(0,30),
+    photoOrder:(Array.isArray(source.photoOrder)?source.photoOrder:[]).map(Number).filter(value=>Number.isInteger(value)&&value>0&&value<=40).slice(0,40)
+  },pricing:{
+    nightlyRate:number(pricing.nightlyRate),weekendRate:number(pricing.weekendRate),cleaningFee:number(pricing.cleaningFee),taxRate:Math.min(number(pricing.taxRate),1),petFee:number(pricing.petFee),maxPets:Math.min(Math.floor(number(pricing.maxPets)),10),minimumNights:Math.max(1,Math.min(Math.floor(number(pricing.minimumNights)),30)),
+    otherFees:(Array.isArray(pricing.otherFees)?pricing.otherFees:[]).map(fee=>({name:text(fee?.name,80),amount:number(fee?.amount)})).filter(fee=>fee.name).slice(0,20),
+    seasonalRates:(Array.isArray(pricing.seasonalRates)?pricing.seasonalRates:[]).map(rate=>({name:text(rate?.name,80),start:text(rate?.start,10),end:text(rate?.end,10),nightlyRate:number(rate?.nightlyRate),weekendRate:number(rate?.weekendRate)})).filter(rate=>/^\d{4}-\d{2}-\d{2}$/.test(rate.start)&&/^\d{4}-\d{2}-\d{2}$/.test(rate.end)&&rate.end>rate.start&&rate.nightlyRate>0).slice(0,40)
+  }};
+}
+
+async function publicProperty(request,env,slug){
+  const assetUrl=new URL(`/properties/${slug}.json`,request.url),response=await env.ASSETS.fetch(new Request(assetUrl,request));
+  if(!response.ok)return json({error:"Property not found"},404);
+  const base=await response.json(),stored=await storedSettings(env,slug);
+  return json({...base,...(stored.content||{})});
+}
+
 function otherFees(property){
   if(!Array.isArray(property?.otherFees))return [];
   return property.otherFees.map(fee=>({
     name:String(fee?.name||"Other fee").trim().slice(0,80),
     amount:Number(fee?.amount||0)
   })).filter(fee=>fee.name&&Number.isFinite(fee.amount)&&fee.amount>0);
+}
+
+function seasonalRates(property){
+  if(!Array.isArray(property?.seasonalRates))return [];
+  return property.seasonalRates.map(rate=>({
+    name:String(rate?.name||"Seasonal rate").trim().slice(0,80),
+    start:String(rate?.start||""),end:String(rate?.end||""),
+    nightlyRate:Number(rate?.nightlyRate||0),weekendRate:Number(rate?.weekendRate||0)
+  })).filter(rate=>/^\d{4}-\d{2}-\d{2}$/.test(rate.start)&&/^\d{4}-\d{2}-\d{2}$/.test(rate.end)&&rate.end>rate.start&&rate.nightlyRate>0);
+}
+
+function lodgingBreakdown(property,start,nights){
+  const groups=new Map(),seasons=seasonalRates(property),base=Number(property.nightlyRate),baseWeekend=Number(property.weekendRate||0);
+  for(let offset=0;offset<nights;offset++){
+    const date=new Date(start);date.setUTCDate(date.getUTCDate()+offset);
+    const iso=date.toISOString().slice(0,10),weekend=date.getUTCDay()===5||date.getUTCDay()===6,season=seasons.find(rate=>iso>=rate.start&&iso<rate.end);
+    const rate=season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
+    const name=season?.name||"Nightly lodging",cents=Math.round(rate*100),key=`${name}|${cents}`;
+    const current=groups.get(key)||{name,amountCents:cents,quantity:0};current.quantity++;groups.set(key,current);
+  }
+  return [...groups.values()];
 }
 
 function dateValue(value){
@@ -122,6 +185,31 @@ function overlaps(ranges,start,end){
 export default{
   async fetch(request,env,ctx){
     const url=new URL(request.url);
+    if((url.pathname==="/admin"||url.pathname==="/admin.html")&&!adminEmail(request,env))return new Response("Property Editor is locked. Configure Cloudflare Access and ADMIN_EMAIL to continue.",{status:403,headers:{"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"}});
+    if(url.pathname==="/admin"&&adminEmail(request,env))return env.ASSETS.fetch(new Request(new URL("/admin.html",url),request));
+    if(url.pathname.startsWith("/api/properties/")&&request.method==="GET"){
+      const slug=decodeURIComponent(url.pathname.slice("/api/properties/".length));
+      if(!allowedProperties.has(slug))return json({error:"Property not found"},404);
+      return publicProperty(request,env,slug);
+    }
+    if(url.pathname.startsWith("/api/admin/properties/")){
+      if(!adminEmail(request,env))return json({error:"Unauthorized"},401);
+      if(!env.BOOKINGS_DB)return json({error:"Database unavailable"},503);
+      await env.BOOKINGS_DB.prepare("CREATE TABLE IF NOT EXISTS property_settings (slug TEXT PRIMARY KEY,settings_json TEXT NOT NULL,updated_at TEXT NOT NULL DEFAULT (datetime('now')),updated_by TEXT)").run();
+      const slug=decodeURIComponent(url.pathname.slice("/api/admin/properties/".length));
+      if(!allowedProperties.has(slug))return json({error:"Property not found"},404);
+      if(request.method==="GET"){
+        const stored=await storedSettings(env,slug);
+        return json({settings:{...stored,pricing:{...await propertyConfig(env,slug),...(stored.pricing||{})}}});
+      }
+      if(request.method==="PUT"){
+        let settings;try{settings=cleanSettings(await request.json())}catch{return json({error:"Invalid settings"},400)}
+        const serialized=JSON.stringify(settings);if(serialized.length>50000)return json({error:"Settings are too large"},400);
+        await env.BOOKINGS_DB.prepare("INSERT INTO property_settings (slug,settings_json,updated_at,updated_by) VALUES (?1,?2,datetime('now'),?3) ON CONFLICT(slug) DO UPDATE SET settings_json=excluded.settings_json,updated_at=excluded.updated_at,updated_by=excluded.updated_by").bind(slug,serialized,adminEmail(request,env)).run();
+        return json({saved:true});
+      }
+      return json({error:"Method not allowed"},405);
+    }
     if(url.pathname==="/api/stripe/webhook"&&request.method==="POST"){
       const payload=await request.text();
       if(!await validStripeSignature(payload,request.headers.get("Stripe-Signature"),env.STRIPE_WEBHOOK_SECRET))return json({error:"Invalid signature"},400);
@@ -147,13 +235,18 @@ export default{
     if(url.pathname.startsWith("/api/direct-booking/config/")){
       const slug=decodeURIComponent(url.pathname.slice("/api/direct-booking/config/".length));
       if(!allowedProperties.has(slug))return json({error:"Property not found"},404);
-      const property=getBookingConfig(env)[slug];
+      const property=await propertyConfig(env,slug);
       const enabled=Boolean(env.STRIPE_SECRET_KEY&&property?.enabled&&property?.nightlyRate);
       return json({
         enabled,
         nightlyRate:enabled?property.nightlyRate:null,
+        weekendRate:enabled?(property.weekendRate||null):null,
+        seasonalRates:enabled?seasonalRates(property):[],
         cleaningFee:enabled?(property.cleaningFee||0):null,
         otherFees:enabled?otherFees(property):[],
+        petFee:enabled?(property.petFee||0):null,
+        maxPets:enabled?(property.maxPets||0):null,
+        minimumNights:enabled?(property.minimumNights||1):null,
         taxRate:enabled?(property.taxRate||0):null,
         showCalendarPricing:enabled&&property.showCalendarPricing===true,
         currency:"usd"
@@ -167,24 +260,28 @@ export default{
       if(origin&&origin!==url.origin)return json({error:"Invalid request origin."},403);
       let input;
       try{input=await request.json()}catch{return json({error:"Invalid booking request."},400)}
-      const {slug,checkin,checkout,guests,email}=input||{};
+      const {slug,checkin,checkout,guests,email}=input||{};const petCount=Number(input?.pets||0);
       if(!allowedProperties.has(slug))return json({error:"Property not found."},404);
-      const property=getBookingConfig(env)[slug];
+      const property=await propertyConfig(env,slug);
       if(!property?.enabled||!property?.nightlyRate)return json({error:"Direct booking is not active for this property yet."},503);
       const start=dateValue(checkin),end=dateValue(checkout),guestCount=Number(guests);
       const today=new Date();today.setUTCHours(0,0,0,0);
       const nights=start&&end?nightsBetween(start,end):0;
-      if(!start||!end||start<today||nights<1||nights>30)return json({error:"Choose valid dates between 1 and 30 nights."},400);
+      const minimumNights=Math.max(1,Number(property.minimumNights||1));
+      if(!start||!end||start<today||nights<minimumNights||nights>30)return json({error:`Choose valid dates between ${minimumNights} and 30 nights.`},400);
       if(!Number.isInteger(guestCount)||guestCount<1||guestCount>Number(property.maxGuests||30))return json({error:"Choose a valid guest count."},400);
+      if(!Number.isInteger(petCount)||petCount<0||petCount>Number(property.maxPets||0))return json({error:"Choose a valid number of pets."},400);
       if(!/^\S+@\S+\.\S+$/.test(email||""))return json({error:"Enter a valid email address."},400);
       try{
         if(overlaps(await unavailableRanges(env,slug),start,end))return json({error:"Those dates are no longer available. Please choose different dates."},409);
       }catch{return json({error:"We could not confirm availability. Please try again shortly."},503)}
-      const nightly=Math.round(Number(property.nightlyRate)*100);
+      const lodging=lodgingBreakdown(property,start,nights);
       const cleaning=Math.round(Number(property.cleaningFee||0)*100);
+      const pets=Math.round(Number(property.petFee||0)*100)*petCount;
       const fees=otherFees(property).map(fee=>({...fee,amountCents:Math.round(fee.amount*100)}));
       const otherFeesTotal=fees.reduce((sum,fee)=>sum+fee.amountCents,0);
-      const subtotal=nightly*nights+cleaning+otherFeesTotal;
+      const lodgingTotal=lodging.reduce((sum,item)=>sum+item.amountCents*item.quantity,0);
+      const subtotal=lodgingTotal+cleaning+pets+otherFeesTotal;
       const tax=Math.round(subtotal*Number(property.taxRate||0));
       const total=subtotal+tax;
       if(!Number.isSafeInteger(total)||total<50)return json({error:"This quote could not be calculated."},500);
@@ -200,15 +297,14 @@ export default{
       if(!hold.meta?.changes)return json({error:"Those dates are being reserved by another guest. Please choose different dates."},409);
       const success=`${url.origin}/booking-success?session_id={CHECKOUT_SESSION_ID}`;
       const cancel=`${url.origin}/property.html?stay=${encodeURIComponent(slug)}&checkin=${checkin}&checkout=${checkout}&guests=${guestCount}`;
-      const lineItems=[
-        {name:`${property.name||slug} · Nightly lodging`,description:`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,amount:nightly,quantity:nights}
-      ];
+      const lineItems=lodging.map(item=>({name:`${property.name||slug} · ${item.name}`,description:`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,amount:item.amountCents,quantity:item.quantity}));
       if(cleaning>0)lineItems.push({name:"Cleaning fee",amount:cleaning,quantity:1});
+      if(pets>0)lineItems.push({name:`Pet fee · ${petCount} pet${petCount===1?"":"s"}`,amount:pets,quantity:1});
       for(const fee of fees)lineItems.push({name:fee.name,amount:fee.amountCents,quantity:1});
       if(tax>0)lineItems.push({name:"Estimated taxes",amount:tax,quantity:1});
       const stripeValues={
         mode:"payment",success_url:success,cancel_url:cancel,customer_email:email,
-        "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount
+        "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount,"metadata[pets]":petCount
       };
       lineItems.forEach((item,index)=>{
         stripeValues[`line_items[${index}][price_data][currency]`]="usd";
