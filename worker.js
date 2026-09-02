@@ -123,6 +123,21 @@ function formEncode(values){
   return body;
 }
 
+async function stripeApi(env,path,values=null,options={}){
+  const response=await fetch(`https://api.stripe.com/v1/${path}`,{
+    method:values?"POST":"GET",
+    headers:{Authorization:`Bearer ${env.STRIPE_SECRET_KEY}`,...(values?{"Content-Type":"application/x-www-form-urlencoded"}:{}),...(options.idempotencyKey?{"Idempotency-Key":options.idempotencyKey}:{})},
+    body:values?formEncode(values):undefined
+  });
+  const data=await response.json();
+  if(!response.ok)throw new Error(data?.error?.message||"Stripe request failed");
+  return data;
+}
+
+function isoDaysBefore(value,days){
+  const date=dateValue(value);date.setUTCDate(date.getUTCDate()-days);return date.toISOString();
+}
+
 function hex(bytes){return [...new Uint8Array(bytes)].map(value=>value.toString(16).padStart(2,"0")).join("")}
 
 function safeEqual(a,b){
@@ -218,9 +233,16 @@ export default{
       const session=event.data?.object,bookingId=session?.metadata?.booking_id;
       if(bookingId&&env.BOOKINGS_DB){
         if(event.type==="checkout.session.completed"&&session.payment_status==="paid"){
-          await env.BOOKINGS_DB.prepare(`UPDATE bookings SET status='paid', paid_at=datetime('now'), amount_total=?1, currency=?2 WHERE id=?3 AND status='pending'`).bind(session.amount_total||0,session.currency||"usd",bookingId).run();
+          let paymentMethod=null;
+          if(session.payment_intent){try{paymentMethod=(await stripeApi(env,`payment_intents/${session.payment_intent}`)).payment_method}catch{}}
+          const plan=session.metadata?.payment_plan==="split"?"split":"full",balance=Number(session.metadata?.balance_amount||0),bookingTotal=plan==="split"?Number(session.amount_total||0)+balance:Number(session.amount_total||0);
+          await env.BOOKINGS_DB.prepare(`UPDATE bookings SET status='paid', paid_at=datetime('now'), amount_total=?1, currency=?2, booking_total=?3, amount_paid=?1, balance_amount=?4, balance_status=?5, stripe_customer_id=?6, stripe_payment_method_id=?7 WHERE id=?8 AND status='pending'`).bind(session.amount_total||0,session.currency||"usd",bookingTotal,balance,plan==="split"?"pending":"paid",session.customer||null,paymentMethod,bookingId).run();
         }else if(event.type==="checkout.session.expired"){
           await env.BOOKINGS_DB.prepare(`UPDATE bookings SET status='expired' WHERE id=?1 AND status='pending'`).bind(bookingId).run();
+        }else if(event.type==="payment_intent.succeeded"&&session.metadata?.payment_stage==="balance"){
+          await env.BOOKINGS_DB.prepare(`UPDATE bookings SET balance_status='paid', balance_paid_at=datetime('now'), amount_paid=booking_total WHERE id=?1`).bind(bookingId).run();
+        }else if(event.type==="payment_intent.payment_failed"&&session.metadata?.payment_stage==="balance"){
+          await env.BOOKINGS_DB.prepare(`UPDATE bookings SET balance_status='failed' WHERE id=?1 AND balance_status!='paid'`).bind(bookingId).run();
         }
       }
       return json({received:true});
@@ -260,7 +282,8 @@ export default{
       if(origin&&origin!==url.origin)return json({error:"Invalid request origin."},403);
       let input;
       try{input=await request.json()}catch{return json({error:"Invalid booking request."},400)}
-      const {slug,checkin,checkout,guests,email}=input||{};const petCount=Number(input?.pets||0);
+      const {slug,checkin,checkout,guests,email}=input||{};const petCount=Number(input?.pets||0),requestedPlan=input?.paymentPlan==="split"?"split":"full";
+      if(input?.agreementAccepted!==true)return json({error:"Accept the payment authorization and booking policies to continue."},400);
       if(!allowedProperties.has(slug))return json({error:"Property not found."},404);
       const property=await propertyConfig(env,slug);
       if(!property?.enabled||!property?.nightlyRate)return json({error:"Direct booking is not active for this property yet."},503);
@@ -285,27 +308,36 @@ export default{
       const tax=Math.round(subtotal*Number(property.taxRate||0));
       const total=subtotal+tax;
       if(!Number.isSafeInteger(total)||total<50)return json({error:"This quote could not be calculated."},500);
+      const balanceDueAt=isoDaysBefore(checkin,14),splitEligible=new Date(balanceDueAt)>new Date(),paymentPlan=requestedPlan==="split"&&splitEligible?"split":"full",dueNow=paymentPlan==="split"?Math.ceil(total/2):total,balanceAmount=total-dueNow;
       const bookingId=crypto.randomUUID(),expiresAt=new Date(Date.now()+30*60*1000).toISOString();
       const hold=await db.prepare(`
-        INSERT INTO bookings (id,property_slug,checkin,checkout,guests,email,status,expires_at)
-        SELECT ?1,?2,?3,?4,?5,?6,'pending',?7
+        INSERT INTO bookings (id,property_slug,checkin,checkout,guests,email,status,expires_at,payment_plan,booking_total,balance_amount,balance_due_at,balance_status,agreement_version,agreement_accepted_at)
+        SELECT ?1,?2,?3,?4,?5,?6,'pending',?7,?8,?9,?10,?11,?12,'2026-09-02',datetime('now')
         WHERE NOT EXISTS (
           SELECT 1 FROM bookings WHERE property_slug=?2 AND checkout>?3 AND checkin<?4
           AND (status='paid' OR (status='pending' AND julianday(expires_at)>julianday('now')))
         )
-      `).bind(bookingId,slug,checkin,checkout,guestCount,email,expiresAt).run();
+      `).bind(bookingId,slug,checkin,checkout,guestCount,email,expiresAt,paymentPlan,total,balanceAmount,balanceDueAt,paymentPlan==="split"?"pending":"paid").run();
       if(!hold.meta?.changes)return json({error:"Those dates are being reserved by another guest. Please choose different dates."},409);
       const success=`${url.origin}/booking-success?session_id={CHECKOUT_SESSION_ID}`;
       const cancel=`${url.origin}/property.html?stay=${encodeURIComponent(slug)}&checkin=${checkin}&checkout=${checkout}&guests=${guestCount}`;
-      const lineItems=lodging.map(item=>({name:`${property.name||slug} · ${item.name}`,description:`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,amount:item.amountCents,quantity:item.quantity}));
-      if(cleaning>0)lineItems.push({name:"Cleaning fee",amount:cleaning,quantity:1});
-      if(pets>0)lineItems.push({name:`Pet fee · ${petCount} pet${petCount===1?"":"s"}`,amount:pets,quantity:1});
-      for(const fee of fees)lineItems.push({name:fee.name,amount:fee.amountCents,quantity:1});
-      if(tax>0)lineItems.push({name:"Estimated taxes",amount:tax,quantity:1});
+      const lineItems=paymentPlan==="split"?[{name:`50% reservation deposit · ${property.name||slug}`,description:`Full booking total ${new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(total/100)} · balance automatically due 14 days before check-in`,amount:dueNow,quantity:1}]:lodging.map(item=>({name:`${property.name||slug} · ${item.name}`,description:`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,amount:item.amountCents,quantity:item.quantity}));
+      if(paymentPlan==="full"){
+        if(cleaning>0)lineItems.push({name:"Cleaning fee",amount:cleaning,quantity:1});
+        if(pets>0)lineItems.push({name:`Pet fee · ${petCount} pet${petCount===1?"":"s"}`,amount:pets,quantity:1});
+        for(const fee of fees)lineItems.push({name:fee.name,amount:fee.amountCents,quantity:1});
+        if(tax>0)lineItems.push({name:"Estimated taxes",amount:tax,quantity:1});
+      }
       const stripeValues={
-        mode:"payment",success_url:success,cancel_url:cancel,customer_email:email,
-        "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount,"metadata[pets]":petCount
+        mode:"payment",success_url:success,cancel_url:cancel,customer_email:email,allow_promotion_codes:"true",
+        "metadata[booking_id]":bookingId,"metadata[property]":slug,"metadata[checkin]":checkin,"metadata[checkout]":checkout,"metadata[guests]":guestCount,"metadata[pets]":petCount,"metadata[payment_plan]":paymentPlan,"metadata[booking_total]":total,"metadata[balance_amount]":balanceAmount,"metadata[balance_due_at]":balanceDueAt,"metadata[agreement_version]":"2026-09-02"
       };
+      if(paymentPlan==="split"){
+        stripeValues.customer_creation="always";
+        stripeValues["payment_intent_data[setup_future_usage]"]="off_session";
+        stripeValues["payment_intent_data[metadata][booking_id]"]=bookingId;
+        stripeValues["payment_intent_data[metadata][payment_stage]"]="deposit";
+      }
       lineItems.forEach((item,index)=>{
         stripeValues[`line_items[${index}][price_data][currency]`]="usd";
         stripeValues[`line_items[${index}][price_data][product_data][name]`]=item.name;
@@ -313,13 +345,9 @@ export default{
         stripeValues[`line_items[${index}][price_data][unit_amount]`]=item.amount;
         stripeValues[`line_items[${index}][quantity]`]=item.quantity;
       });
-      const stripe=await fetch("https://api.stripe.com/v1/checkout/sessions",{
-        method:"POST",
-        headers:{Authorization:`Bearer ${env.STRIPE_SECRET_KEY}`,"Content-Type":"application/x-www-form-urlencoded"},
-        body:formEncode(stripeValues)
-      });
-      const session=await stripe.json();
-      if(!stripe.ok||!session.url){await db.prepare("UPDATE bookings SET status='expired' WHERE id=?1").bind(bookingId).run();return json({error:"Secure checkout could not be started. Please try again."},502)}
+      let session;
+      try{session=await stripeApi(env,"checkout/sessions",stripeValues,{idempotencyKey:`booking-${bookingId}`})}catch{await db.prepare("UPDATE bookings SET status='expired' WHERE id=?1").bind(bookingId).run();return json({error:"Secure checkout could not be started. Please try again."},502)}
+      if(!session.url){await db.prepare("UPDATE bookings SET status='expired' WHERE id=?1").bind(bookingId).run();return json({error:"Secure checkout could not be started. Please try again."},502)}
       await db.prepare("UPDATE bookings SET stripe_session_id=?1 WHERE id=?2").bind(session.id,bookingId).run();
       return json({url:session.url});
     }
@@ -343,5 +371,20 @@ export default{
       }
     }
     return env.ASSETS.fetch(request);
+  },
+  async scheduled(controller,env,ctx){
+    if(!env.BOOKINGS_DB||!env.STRIPE_SECRET_KEY)return;
+    const run=async()=>{
+      const due=await env.BOOKINGS_DB.prepare(`SELECT id,balance_amount,currency,stripe_customer_id,stripe_payment_method_id FROM bookings WHERE status='paid' AND payment_plan='split' AND balance_status IN ('pending','failed') AND balance_amount>0 AND julianday(balance_due_at)<=julianday('now') LIMIT 50`).all();
+      for(const booking of due.results||[]){
+        if(!booking.stripe_customer_id||!booking.stripe_payment_method_id){await env.BOOKINGS_DB.prepare("UPDATE bookings SET balance_status='failed' WHERE id=?1").bind(booking.id).run();continue}
+        try{
+          const intent=await stripeApi(env,"payment_intents",{amount:booking.balance_amount,currency:booking.currency||"usd",customer:booking.stripe_customer_id,payment_method:booking.stripe_payment_method_id,confirm:"true",off_session:"true","metadata[booking_id]":booking.id,"metadata[payment_stage]":"balance"},{idempotencyKey:`booking-balance-${booking.id}`});
+          await env.BOOKINGS_DB.prepare("UPDATE bookings SET balance_payment_intent_id=?1,balance_status=?2 WHERE id=?3 AND balance_status!='paid'").bind(intent.id,intent.status==="succeeded"?"paid":intent.status==="requires_action"?"action_required":"pending",booking.id).run();
+          if(intent.status==="succeeded")await env.BOOKINGS_DB.prepare("UPDATE bookings SET balance_paid_at=datetime('now'),amount_paid=booking_total WHERE id=?1").bind(booking.id).run();
+        }catch{await env.BOOKINGS_DB.prepare("UPDATE bookings SET balance_status='failed' WHERE id=?1 AND balance_status!='paid'").bind(booking.id).run()}
+      }
+    };
+    ctx.waitUntil(run());
   }
 };
