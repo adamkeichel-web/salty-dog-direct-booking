@@ -264,6 +264,26 @@ export default{
       }
       return json({received:true});
     }
+    if(url.pathname==="/api/direct-booking/confirmation"&&request.method==="GET"){
+      if(!env.STRIPE_SECRET_KEY||!env.BOOKINGS_DB)return json({error:"Confirmation service unavailable."},503);
+      const sessionId=String(url.searchParams.get("session_id")||"");
+      if(!/^cs_(test_|live_)[A-Za-z0-9]+$/.test(sessionId))return json({error:"Invalid confirmation reference."},400);
+      let session;
+      try{session=await stripeApi(env,`checkout/sessions/${encodeURIComponent(sessionId)}`)}catch{return json({error:"We could not verify this payment yet."},502)}
+      const bookingId=session?.metadata?.booking_id;
+      if(!bookingId||session.payment_status!=="paid")return json({confirmed:false,status:session?.payment_status||"unpaid"},202);
+      const booking=await env.BOOKINGS_DB.prepare(`SELECT property_slug,checkin,checkout,email,payment_plan,booking_total,amount_paid,balance_amount,balance_due_at,balance_status,status FROM bookings WHERE id=?1 AND stripe_session_id=?2`).bind(bookingId,sessionId).first();
+      if(!booking||booking.status!=="paid")return json({confirmed:false,status:"processing"},202);
+      return json({confirmed:true,booking:{property:booking.property_slug,checkin:booking.checkin,checkout:booking.checkout,email:booking.email,paymentPlan:booking.payment_plan,total:booking.booking_total,amountPaid:booking.amount_paid,balanceAmount:booking.balance_amount,balanceDueAt:booking.balance_due_at,balanceStatus:booking.balance_status,currency:session.currency||"usd"}});
+    }
+    if(url.pathname==="/api/admin/launch-status"&&request.method==="GET"){
+      if(!adminEmail(request,env))return json({error:"Unauthorized"},401);
+      let feeds={},config={};
+      try{feeds=JSON.parse(env.ICAL_FEEDS||"{}")}catch{}
+      try{config=JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{}
+      const properties=[...allowedProperties].sort().map(slug=>({slug,calendar:Boolean(feeds[slug]),booking:Boolean(config[slug]?.enabled&&config[slug]?.nightlyRate)}));
+      return json({ready:Boolean(env.BOOKINGS_DB&&env.STRIPE_SECRET_KEY&&env.STRIPE_WEBHOOK_SECRET&&properties.every(item=>item.calendar)),checks:{database:Boolean(env.BOOKINGS_DB),stripe:Boolean(env.STRIPE_SECRET_KEY),stripeWebhook:Boolean(env.STRIPE_WEBHOOK_SECRET),adminEmails:Boolean(String(env.ADMIN_EMAIL||"").trim())},properties});
+    }
     if(url.pathname.startsWith("/api/calendar/direct/")&&url.pathname.endsWith(".ics")){
       const slug=decodeURIComponent(url.pathname.slice("/api/calendar/direct/".length,-4));
       if(!allowedProperties.has(slug))return new Response("Not found",{status:404});
