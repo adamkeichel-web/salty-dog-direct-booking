@@ -163,6 +163,55 @@ function requireDatabase(env){
   return env.BOOKINGS_DB;
 }
 
+let bookingSchemaPromise;
+async function ensureBookingSchema(env){
+  if(bookingSchemaPromise)return bookingSchemaPromise;
+  bookingSchemaPromise=(async()=>{
+    const db=requireDatabase(env);
+    await db.prepare(`CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY,
+      property_slug TEXT NOT NULL,
+      checkin TEXT NOT NULL,
+      checkout TEXT NOT NULL,
+      guests INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('pending','paid','expired','cancelled','refunded')),
+      stripe_session_id TEXT UNIQUE,
+      amount_total INTEGER,
+      currency TEXT,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      paid_at TEXT
+    )`).run();
+    const existing=new Set(((await db.prepare("PRAGMA table_info(bookings)").all()).results||[]).map(column=>column.name));
+    const required={
+      payment_plan:"TEXT NOT NULL DEFAULT 'full'",
+      booking_total:"INTEGER",
+      amount_paid:"INTEGER NOT NULL DEFAULT 0",
+      balance_amount:"INTEGER NOT NULL DEFAULT 0",
+      balance_due_at:"TEXT",
+      stripe_customer_id:"TEXT",
+      stripe_payment_method_id:"TEXT",
+      balance_payment_intent_id:"TEXT",
+      balance_status:"TEXT NOT NULL DEFAULT 'not_due'",
+      balance_paid_at:"TEXT",
+      agreement_version:"TEXT",
+      agreement_accepted_at:"TEXT"
+    };
+    for(const [name,definition] of Object.entries(required)){
+      if(existing.has(name))continue;
+      try{await db.prepare(`ALTER TABLE bookings ADD COLUMN ${name} ${definition}`).run()}
+      catch(error){
+        const refreshed=new Set(((await db.prepare("PRAGMA table_info(bookings)").all()).results||[]).map(column=>column.name));
+        if(!refreshed.has(name))throw error;
+      }
+    }
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_bookings_property_dates ON bookings(property_slug, checkin, checkout, status, expires_at)").run();
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_bookings_balance_due ON bookings(payment_plan, balance_status, balance_due_at)").run();
+  })().catch(error=>{bookingSchemaPromise=undefined;throw error});
+  return bookingSchemaPromise;
+}
+
 async function directRanges(env,slug){
   if(!env.BOOKINGS_DB)return [];
   const result=await env.BOOKINGS_DB.prepare(`
@@ -232,6 +281,7 @@ export default{
       try{event=JSON.parse(payload)}catch{return json({error:"Invalid payload"},400)}
       const session=event.data?.object,bookingId=session?.metadata?.booking_id;
       if(bookingId&&env.BOOKINGS_DB){
+        await ensureBookingSchema(env);
         if(event.type==="checkout.session.completed"&&session.payment_status==="paid"){
           let paymentMethod=null;
           if(session.payment_intent){try{paymentMethod=(await stripeApi(env,`payment_intents/${session.payment_intent}`)).payment_method}catch{}}
@@ -278,6 +328,7 @@ export default{
       if(!env.STRIPE_SECRET_KEY)return json({error:"Direct booking is not active yet."},503);
       let db;
       try{db=requireDatabase(env)}catch{return json({error:"The booking database is not active yet."},503)}
+      try{await ensureBookingSchema(env)}catch{return json({error:"The booking database is being prepared. Please try again shortly."},503)}
       const origin=request.headers.get("Origin");
       if(origin&&origin!==url.origin)return json({error:"Invalid request origin."},403);
       let input;
@@ -375,6 +426,7 @@ export default{
   async scheduled(controller,env,ctx){
     if(!env.BOOKINGS_DB||!env.STRIPE_SECRET_KEY)return;
     const run=async()=>{
+      await ensureBookingSchema(env);
       const due=await env.BOOKINGS_DB.prepare(`SELECT id,balance_amount,currency,stripe_customer_id,stripe_payment_method_id FROM bookings WHERE status='paid' AND payment_plan='split' AND balance_status IN ('pending','failed') AND balance_amount>0 AND julianday(balance_due_at)<=julianday('now') LIMIT 50`).all();
       for(const booking of due.results||[]){
         if(!booking.stripe_customer_id||!booking.stripe_payment_method_id){await env.BOOKINGS_DB.prepare("UPDATE bookings SET balance_status='failed' WHERE id=?1").bind(booking.id).run();continue}
