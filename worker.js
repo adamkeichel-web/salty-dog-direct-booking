@@ -307,7 +307,8 @@ export default{
         const placeholder=nightly===10&&cleaning===5&&tax===0;
         return {slug,calendar:Boolean(feeds[slug]),booking:Boolean(property.enabled&&nightly),pricing:Boolean(nightly>0&&!placeholder),placeholder};
       }));
-      return json({ready:Boolean(env.BOOKINGS_DB&&env.STRIPE_SECRET_KEY&&env.STRIPE_WEBHOOK_SECRET&&properties.every(item=>item.calendar&&item.booking&&item.pricing)),checks:{database:Boolean(env.BOOKINGS_DB),stripe:Boolean(env.STRIPE_SECRET_KEY),stripeWebhook:Boolean(env.STRIPE_WEBHOOK_SECRET),adminEmails:Boolean(String(env.ADMIN_EMAIL||"").trim())},properties});
+      const stripeLive=Boolean(env.STRIPE_SECRET_KEY&&!String(env.STRIPE_SECRET_KEY).startsWith("sk_test_"));
+      return json({ready:Boolean(env.BOOKINGS_DB&&stripeLive&&env.STRIPE_WEBHOOK_SECRET&&properties.every(item=>item.calendar&&item.booking&&item.pricing)),checks:{database:Boolean(env.BOOKINGS_DB),stripe:Boolean(env.STRIPE_SECRET_KEY),stripeLive,stripeWebhook:Boolean(env.STRIPE_WEBHOOK_SECRET),adminEmails:Boolean(String(env.ADMIN_EMAIL||"").trim())},properties});
     }
     if(url.pathname.startsWith("/api/calendar/direct/")&&url.pathname.endsWith(".ics")){
       const slug=decodeURIComponent(url.pathname.slice("/api/calendar/direct/".length,-4));
@@ -334,6 +335,7 @@ export default{
         minimumNights:enabled?(property.minimumNights||1):null,
         taxRate:enabled?(property.taxRate||0):null,
         showCalendarPricing:enabled&&property.showCalendarPricing===true,
+        testMode:enabled&&String(env.STRIPE_SECRET_KEY).startsWith("sk_test_"),
         currency:"usd"
       });
     }
