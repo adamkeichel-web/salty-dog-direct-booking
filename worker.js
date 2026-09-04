@@ -31,13 +31,27 @@ const propertyGuestLimits={
   "beachfront-bliss":7,"deep-blue-dive":18,"sea-turtle":10,"seaside-vibes":4,
   "stars-and-sea":4,"the-salty-dog":10,"waterfront-paradise":4
 };
+const airbnbImportedDefaults={
+  "beachfront-bliss":{nightlyRate:450,weekendRate:0,cleaningFee:200,taxRate:.12,petFee:0,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "deep-blue-dive":{nightlyRate:746,weekendRate:0,cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "sea-turtle":{nightlyRate:400,weekendRate:450,cleaningFee:200,taxRate:.12,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "seaside-vibes":{nightlyRate:115,weekendRate:0,cleaningFee:115,taxRate:.13,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "stars-and-sea":{nightlyRate:230,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:92,maxPets:1,minimumNights:2,showCalendarPricing:true},
+  "the-salty-dog":{nightlyRate:250,weekendRate:0,cleaningFee:150,taxRate:.12,petFee:75,maxPets:1,minimumNights:2,showCalendarPricing:true},
+  "waterfront-paradise":{nightlyRate:228,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:115,maxPets:1,minimumNights:2,showCalendarPricing:true}
+};
 
 function json(data,status=200){
   return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 }
 
 function getBookingConfig(env){
-  try{return JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{return {}}
+  let config={};try{config=JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{}
+  for(const [slug,imported] of Object.entries(airbnbImportedDefaults)){
+    const current=config[slug]||{},placeholder=Number(current.nightlyRate)===10&&Number(current.cleaningFee)===5&&Number(current.taxRate||0)===0;
+    if(placeholder)config[slug]={...current,...imported};
+  }
+  return config;
 }
 
 async function storedSettings(env,slug){
@@ -372,7 +386,7 @@ export default{
       }catch{return json({error:"We could not confirm availability. Please try again shortly."},503)}
       const lodging=lodgingBreakdown(property,start,nights);
       const cleaning=Math.round(Number(property.cleaningFee||0)*100);
-      const pets=Math.round(Number(property.petFee||0)*100)*petCount;
+      const pets=petCount>0?Math.round(Number(property.petFee||0)*100):0;
       const fees=otherFees(property).map(fee=>({...fee,amountCents:Math.round(fee.amount*100)}));
       const otherFeesTotal=fees.reduce((sum,fee)=>sum+fee.amountCents,0);
       const lodgingTotal=lodging.reduce((sum,item)=>sum+item.amountCents*item.quantity,0);
@@ -396,7 +410,7 @@ export default{
       const lineItems=paymentPlan==="split"?[{name:`50% reservation deposit · ${property.name||slug}`,description:`Full booking total ${new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(total/100)} · balance automatically due 14 days before check-in`,amount:dueNow,quantity:1}]:lodging.map(item=>({name:`${property.name||slug} · ${item.name}`,description:`${checkin} to ${checkout} · ${guestCount} guest${guestCount===1?"":"s"}`,amount:item.amountCents,quantity:item.quantity}));
       if(paymentPlan==="full"){
         if(cleaning>0)lineItems.push({name:"Cleaning fee",amount:cleaning,quantity:1});
-        if(pets>0)lineItems.push({name:`Pet fee · ${petCount} pet${petCount===1?"":"s"}`,amount:pets,quantity:1});
+        if(pets>0)lineItems.push({name:`Pet fee · per stay`,description:`${petCount} pet${petCount===1?"":"s"}`,amount:pets,quantity:1});
         for(const fee of fees)lineItems.push({name:fee.name,amount:fee.amountCents,quantity:1});
         if(tax>0)lineItems.push({name:"Estimated taxes",amount:tax,quantity:1});
       }
