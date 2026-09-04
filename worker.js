@@ -27,6 +27,10 @@ const allowedProperties=new Set([
   "beachfront-bliss","deep-blue-dive","sea-turtle","seaside-vibes",
   "stars-and-sea","the-salty-dog","waterfront-paradise"
 ]);
+const propertyGuestLimits={
+  "beachfront-bliss":7,"deep-blue-dive":18,"sea-turtle":10,"seaside-vibes":4,
+  "stars-and-sea":4,"the-salty-dog":10,"waterfront-paradise":4
+};
 
 function json(data,status=200){
   return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
@@ -48,7 +52,7 @@ async function propertyConfig(env,slug){
   const base=getBookingConfig(env)[slug]||{},stored=await storedSettings(env,slug);
   const property={...base,...(stored.pricing||{})};
   const editorGuestLimit=Number(stored.content?.guests||0);
-  if(editorGuestLimit>0)property.maxGuests=Math.min(Math.floor(editorGuestLimit),30);
+  property.maxGuests=editorGuestLimit>0?Math.min(Math.floor(editorGuestLimit),30):(propertyGuestLimits[slug]||30);
   return property;
 }
 
@@ -284,8 +288,12 @@ export default{
       let feeds={},config={};
       try{feeds=JSON.parse(env.ICAL_FEEDS||"{}")}catch{}
       try{config=JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{}
-      const properties=[...allowedProperties].sort().map(slug=>({slug,calendar:Boolean(feeds[slug]),booking:Boolean(config[slug]?.enabled&&config[slug]?.nightlyRate)}));
-      return json({ready:Boolean(env.BOOKINGS_DB&&env.STRIPE_SECRET_KEY&&env.STRIPE_WEBHOOK_SECRET&&properties.every(item=>item.calendar)),checks:{database:Boolean(env.BOOKINGS_DB),stripe:Boolean(env.STRIPE_SECRET_KEY),stripeWebhook:Boolean(env.STRIPE_WEBHOOK_SECRET),adminEmails:Boolean(String(env.ADMIN_EMAIL||"").trim())},properties});
+      const properties=await Promise.all([...allowedProperties].sort().map(async slug=>{
+        const property=await propertyConfig(env,slug),nightly=Number(property.nightlyRate||0),cleaning=Number(property.cleaningFee||0),tax=Number(property.taxRate||0);
+        const placeholder=nightly===10&&cleaning===5&&tax===0;
+        return {slug,calendar:Boolean(feeds[slug]),booking:Boolean(property.enabled&&nightly),pricing:Boolean(nightly>0&&!placeholder),placeholder};
+      }));
+      return json({ready:Boolean(env.BOOKINGS_DB&&env.STRIPE_SECRET_KEY&&env.STRIPE_WEBHOOK_SECRET&&properties.every(item=>item.calendar&&item.booking&&item.pricing)),checks:{database:Boolean(env.BOOKINGS_DB),stripe:Boolean(env.STRIPE_SECRET_KEY),stripeWebhook:Boolean(env.STRIPE_WEBHOOK_SECRET),adminEmails:Boolean(String(env.ADMIN_EMAIL||"").trim())},properties});
     }
     if(url.pathname.startsWith("/api/calendar/direct/")&&url.pathname.endsWith(".ics")){
       const slug=decodeURIComponent(url.pathname.slice("/api/calendar/direct/".length,-4));
@@ -308,6 +316,7 @@ export default{
         otherFees:enabled?otherFees(property):[],
         petFee:enabled?(property.petFee||0):null,
         maxPets:enabled?(property.maxPets||0):null,
+        maxGuests:enabled?(property.maxGuests||propertyGuestLimits[slug]):null,
         minimumNights:enabled?(property.minimumNights||1):null,
         taxRate:enabled?(property.taxRate||0):null,
         showCalendarPricing:enabled&&property.showCalendarPricing===true,
