@@ -46,7 +46,10 @@ async function storedSettings(env,slug){
 
 async function propertyConfig(env,slug){
   const base=getBookingConfig(env)[slug]||{},stored=await storedSettings(env,slug);
-  return {...base,...(stored.pricing||{})};
+  const property={...base,...(stored.pricing||{})};
+  const editorGuestLimit=Number(stored.content?.guests||0);
+  if(editorGuestLimit>0)property.maxGuests=Math.min(Math.floor(editorGuestLimit),30);
+  return property;
 }
 
 function adminEmail(request,env){
@@ -65,7 +68,7 @@ function cleanSettings(input){
     tags:(Array.isArray(source.tags)?source.tags:[]).map(value=>text(value,60).toLowerCase()).filter(Boolean).slice(0,30),
     photoOrder:(Array.isArray(source.photoOrder)?source.photoOrder:[]).map(Number).filter(value=>Number.isInteger(value)&&value>0&&value<=40).slice(0,40)
   },pricing:{
-    nightlyRate:number(pricing.nightlyRate),weekendRate:number(pricing.weekendRate),cleaningFee:number(pricing.cleaningFee),taxRate:Math.min(number(pricing.taxRate),1),petFee:number(pricing.petFee),maxPets:Math.min(Math.floor(number(pricing.maxPets)),10),minimumNights:Math.max(1,Math.min(Math.floor(number(pricing.minimumNights)),30)),
+    nightlyRate:number(pricing.nightlyRate),weekendRate:number(pricing.weekendRate),cleaningFee:number(pricing.cleaningFee),taxRate:Math.min(number(pricing.taxRate),1),petFee:number(pricing.petFee),maxPets:Math.min(Math.floor(number(pricing.maxPets)),10),minimumNights:Math.max(1,Math.min(Math.floor(number(pricing.minimumNights)),30)),showCalendarPricing:pricing.showCalendarPricing===true,
     otherFees:(Array.isArray(pricing.otherFees)?pricing.otherFees:[]).map(fee=>({name:text(fee?.name,80),amount:number(fee?.amount)})).filter(fee=>fee.name).slice(0,20),
     seasonalRates:(Array.isArray(pricing.seasonalRates)?pricing.seasonalRates:[]).map(rate=>({name:text(rate?.name,80),start:text(rate?.start,10),end:text(rate?.end,10),nightlyRate:number(rate?.nightlyRate),weekendRate:number(rate?.weekendRate)})).filter(rate=>/^\d{4}-\d{2}-\d{2}$/.test(rate.start)&&/^\d{4}-\d{2}-\d{2}$/.test(rate.end)&&rate.end>rate.start&&rate.nightlyRate>0).slice(0,40)
   }};
