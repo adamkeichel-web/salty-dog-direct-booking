@@ -17,8 +17,8 @@ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${Str
 const blocked=date=>ranges.some(r=>date>=r.start&&date<r.end);
 function rateForDate(value){
   if(!pricing)return null;
-  const seasons=Array.isArray(pricing.seasonalRates)?pricing.seasonalRates:[],season=seasons.find(rate=>value>=rate.start&&value<rate.end),date=new Date(`${value}T00:00:00Z`),weekend=date.getUTCDay()===5||date.getUTCDay()===6;
-  const rate=season?(weekend&&Number(season.weekendRate)>0?season.weekendRate:season.nightlyRate):(weekend&&Number(pricing.weekendRate)>0?pricing.weekendRate:pricing.nightlyRate);
+  const seasons=Array.isArray(pricing.seasonalRates)?pricing.seasonalRates:[],season=seasons.find(rate=>value>=rate.start&&value<rate.end),date=new Date(`${value}T00:00:00Z`),weekend=date.getUTCDay()===5||date.getUTCDay()===6,monthDay=value.slice(5),special=(Array.isArray(pricing.specialDiscounts)?pricing.specialDiscounts:[]).find(rule=>monthDay>=rule.start&&monthDay<rule.end),discount=Number(special?.discount??(weekend?pricing.weekendDiscount:pricing.weekdayDiscount)),hasDiscount=Number.isFinite(discount)&&discount>0&&discount<1;
+  const rate=hasDiscount?Number(pricing.nightlyRate)*(1-discount):season?(weekend&&Number(season.weekendRate)>0?season.weekendRate:season.nightlyRate):(weekend&&Number(pricing.weekendRate)>0?pricing.weekendRate:pricing.nightlyRate);
   return Number(rate)>0?Number(rate):null;
 }
 function renderMonth(base){
