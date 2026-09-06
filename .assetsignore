@@ -2,3 +2,7 @@
 **/.git/**
 **/node_modules
 **/.DS_Store
+**/*.zip
+.wrangler/**
+salty-dog-site-edits-v7/**
+scripts/**
