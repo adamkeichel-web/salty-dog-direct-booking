@@ -124,7 +124,7 @@ function lodgingBreakdown(property,start,nights){
     const date=new Date(start);date.setUTCDate(date.getUTCDate()+offset);
     const iso=date.toISOString().slice(0,10),weekend=date.getUTCDay()===5||date.getUTCDay()===6,season=seasons.find(rate=>iso>=rate.start&&iso<rate.end);
     const monthDay=iso.slice(5),special=(Array.isArray(property.specialDiscounts)?property.specialDiscounts:[]).find(rule=>monthDay>=rule.start&&monthDay<rule.end);
-    const discountWindow=monthDay>=String(property.discountStart||"")&&monthDay<String(property.discountEnd||"99-99");
+    const discountWindow=monthDay>=String(property.discountStart||"10-01")&&monthDay<String(property.discountEnd||"11-01");
     const discount=Number(special?.discount??(discountWindow?(weekend?property.weekendDiscount:property.weekdayDiscount):0));
     const hasDiscount=Number.isFinite(discount)&&discount>0&&discount<1;
     const baseRate=hasDiscount?base*(1-discount):season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
