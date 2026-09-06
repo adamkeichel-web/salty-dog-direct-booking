@@ -50,6 +50,7 @@ function getBookingConfig(env){
   for(const [slug,imported] of Object.entries(airbnbImportedDefaults)){
     const current=config[slug]||{},placeholder=Number(current.nightlyRate)===10&&Number(current.cleaningFee)===5&&Number(current.taxRate||0)===0;
     config[slug]=placeholder?{...current,...imported}:{...imported,...current};
+    if(slug==="deep-blue-dive")Object.assign(config[slug],{discountStart:imported.discountStart,discountEnd:imported.discountEnd,weekdayDiscount:imported.weekdayDiscount,weekendDiscount:imported.weekendDiscount,specialDiscounts:imported.specialDiscounts});
   }
   return config;
 }
