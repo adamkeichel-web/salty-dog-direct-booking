@@ -39,6 +39,19 @@ function findPhotoTour(value, seen = new Set()) {
   return null;
 }
 
+function collectVisiblePhotos(value, photos = [], seen = new Set()) {
+  if (!value || typeof value !== "object" || seen.has(value)) return photos;
+  seen.add(value);
+
+  if (value.__typename === "HeroImageItem" && value.image?.uri) {
+    photos.push(value.image.uri);
+  }
+
+  const children = Array.isArray(value) ? value : Object.values(value);
+  for (const child of children) collectVisiblePhotos(child, photos, seen);
+  return photos;
+}
+
 function extractPhotoTour(html) {
   const scripts = html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
   for (const match of scripts) {
@@ -54,6 +67,23 @@ function extractPhotoTour(html) {
     }
   }
   throw new Error("Airbnb photo manifest was not found");
+}
+
+function extractVisiblePhotoOrder(html) {
+  const scripts = html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
+  let best = [];
+  for (const match of scripts) {
+    const source = match[1];
+    if (!source.includes("HeroImageItem")) continue;
+    try {
+      const ordered = collectVisiblePhotos(JSON.parse(source));
+      const unique = [...new Set(ordered)];
+      if (unique.length > best.length) best = unique;
+    } catch {
+      // Continue to the next JSON script.
+    }
+  }
+  return best;
 }
 
 function extensionFor(url) {
@@ -100,7 +130,17 @@ async function syncProperty(slug) {
   const listingUrl = new URL(property.airbnb);
   listingUrl.searchParams.set("modal", "PHOTO_TOUR_SCROLLABLE");
   const page = await fetchWithRetry(listingUrl);
-  const mediaItems = extractPhotoTour(await page.text());
+  const html = await page.text();
+  const photoTour = extractPhotoTour(html);
+  const visibleOrder = extractVisiblePhotoOrder(html);
+  const photoById = new Map(
+    photoTour.map((item) => [path.basename(new URL(item.baseUrl).pathname), item])
+  );
+  const visibleItems = visibleOrder
+    .map((url) => photoById.get(path.basename(new URL(url).pathname)))
+    .filter(Boolean);
+  const mediaItems =
+    visibleItems.length === photoTour.length ? visibleItems : photoTour;
   const targetDir = path.join(assetsDir, slug);
   await mkdir(targetDir, { recursive: true });
 
