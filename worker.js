@@ -32,13 +32,13 @@ const propertyGuestLimits={
   "stars-and-sea":4,"the-salty-dog":10,"waterfront-paradise":4
 };
 const airbnbImportedDefaults={
-  "beachfront-bliss":{nightlyRate:450,weekendRate:0,cleaningFee:200,taxRate:.12,petFee:0,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "deep-blue-dive":{nightlyRate:746,weekendRate:0,discountStart:"10-01",discountEnd:"11-01",weekdayDiscount:.55,weekendDiscount:.35,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",adjustment:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "sea-turtle":{nightlyRate:400,weekendRate:450,cleaningFee:200,taxRate:.12,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "seaside-vibes":{nightlyRate:115,weekendRate:0,cleaningFee:115,taxRate:.13,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "stars-and-sea":{nightlyRate:230,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:92,maxPets:1,minimumNights:2,showCalendarPricing:true},
-  "the-salty-dog":{nightlyRate:250,weekendRate:0,cleaningFee:150,taxRate:.12,petFee:75,maxPets:1,minimumNights:2,showCalendarPricing:true},
-  "waterfront-paradise":{nightlyRate:228,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:115,maxPets:1,minimumNights:2,showCalendarPricing:true}
+  "beachfront-bliss":{nightlyRate:450,weekendRate:0,cleaningFee:200,taxRate:.12,petFee:0,maxPets:0,minimumNights:3,minimumBookingAge:25,showCalendarPricing:true},
+  "deep-blue-dive":{nightlyRate:746,weekendRate:0,discountStart:"10-01",discountEnd:"11-01",weekdayDiscount:.55,weekendDiscount:.35,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",adjustment:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:2,minimumNights:3,minimumBookingAge:25,showCalendarPricing:true},
+  "sea-turtle":{nightlyRate:400,weekendRate:450,cleaningFee:200,taxRate:.12,petFee:75,maxPets:2,minimumNights:3,showCalendarPricing:true},
+  "seaside-vibes":{nightlyRate:115,weekendRate:0,cleaningFee:115,taxRate:.13,petFee:75,maxPets:2,minimumNights:3,showCalendarPricing:true},
+  "stars-and-sea":{nightlyRate:230,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:92,maxPets:2,minimumNights:2,showCalendarPricing:true},
+  "the-salty-dog":{nightlyRate:250,weekendRate:0,cleaningFee:150,taxRate:.12,petFee:75,maxPets:2,minimumNights:2,showCalendarPricing:true},
+  "waterfront-paradise":{nightlyRate:228,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:115,maxPets:2,minimumNights:2,showCalendarPricing:true}
 };
 
 function json(data,status=200){
@@ -66,6 +66,8 @@ async function storedSettings(env,slug){
 async function propertyConfig(env,slug){
   const base=getBookingConfig(env)[slug]||{},stored=await storedSettings(env,slug);
   const property={...base,...(stored.pricing||{})};
+  property.maxPets=slug==="beachfront-bliss"?0:2;
+  property.minimumBookingAge=slug==="beachfront-bliss"||slug==="deep-blue-dive"?25:null;
   if(slug==="deep-blue-dive")Object.assign(property,{discountStart:base.discountStart,discountEnd:base.discountEnd,weekdayDiscount:base.weekdayDiscount,weekendDiscount:base.weekendDiscount,specialDiscounts:base.specialDiscounts});
   const editorGuestLimit=Number(stored.content?.guests||0);
   property.maxGuests=editorGuestLimit>0?Math.min(Math.floor(editorGuestLimit),30):(propertyGuestLimits[slug]||30);
@@ -344,6 +346,7 @@ export default{
         maxPets:enabled?(property.maxPets||0):null,
         maxGuests:enabled?(property.maxGuests||propertyGuestLimits[slug]):null,
         minimumNights:enabled?(property.minimumNights||1):null,
+        minimumBookingAge:enabled?(property.minimumBookingAge||null):null,
         taxRate:enabled?(property.taxRate||0):null,
         showCalendarPricing:enabled&&property.showCalendarPricing===true,
         testMode:enabled&&String(env.STRIPE_SECRET_KEY).startsWith("sk_test_"),
