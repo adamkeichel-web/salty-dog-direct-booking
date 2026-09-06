@@ -33,7 +33,7 @@ const propertyGuestLimits={
 };
 const airbnbImportedDefaults={
   "beachfront-bliss":{nightlyRate:450,weekendRate:0,cleaningFee:200,taxRate:.12,petFee:0,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "deep-blue-dive":{nightlyRate:746,weekendRate:0,weekdayDiscount:.55,weekendDiscount:.35,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",discount:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "deep-blue-dive":{nightlyRate:746,weekendRate:0,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",discount:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "sea-turtle":{nightlyRate:400,weekendRate:450,cleaningFee:200,taxRate:.12,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "seaside-vibes":{nightlyRate:115,weekendRate:0,cleaningFee:115,taxRate:.13,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "stars-and-sea":{nightlyRate:230,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:92,maxPets:1,minimumNights:2,showCalendarPricing:true},
