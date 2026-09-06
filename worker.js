@@ -66,6 +66,7 @@ async function storedSettings(env,slug){
 async function propertyConfig(env,slug){
   const base=getBookingConfig(env)[slug]||{},stored=await storedSettings(env,slug);
   const property={...base,...(stored.pricing||{})};
+  if(slug==="deep-blue-dive")Object.assign(property,{discountStart:base.discountStart,discountEnd:base.discountEnd,weekdayDiscount:base.weekdayDiscount,weekendDiscount:base.weekendDiscount,specialDiscounts:base.specialDiscounts});
   const editorGuestLimit=Number(stored.content?.guests||0);
   property.maxGuests=editorGuestLimit>0?Math.min(Math.floor(editorGuestLimit),30):(propertyGuestLimits[slug]||30);
   return property;
