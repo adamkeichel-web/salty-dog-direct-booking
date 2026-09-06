@@ -123,13 +123,14 @@ function lodgingBreakdown(property,start,nights){
   for(let offset=0;offset<nights;offset++){
     const date=new Date(start);date.setUTCDate(date.getUTCDate()+offset);
     const iso=date.toISOString().slice(0,10),weekend=date.getUTCDay()===5||date.getUTCDay()===6,season=seasons.find(rate=>iso>=rate.start&&iso<rate.end);
+    const seasonalRate=iso.slice(0,7)==="2026-09"?null:season;
     const monthDay=iso.slice(5),special=(Array.isArray(property.specialDiscounts)?property.specialDiscounts:[]).find(rule=>monthDay>=rule.start&&monthDay<rule.end);
     const discountWindow=monthDay>=String(property.discountStart||"10-01")&&monthDay<String(property.discountEnd||"11-01");
     const discount=Number(special?.discount??(discountWindow?(weekend?property.weekendDiscount:property.weekdayDiscount):0));
     const hasDiscount=Number.isFinite(discount)&&discount>0&&discount<1;
-    const baseRate=hasDiscount?base*(1-discount):season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
+    const baseRate=hasDiscount?base*(1-discount):seasonalRate?(weekend&&seasonalRate.weekendRate>0?seasonalRate.weekendRate:seasonalRate.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
     const adjustment=Number(special?.adjustment||0),rate=baseRate*(Number.isFinite(adjustment)?1+adjustment:1);
-    const name=special?.name||(hasDiscount?(weekend?"Weekend discounted rate":"Weekday discounted rate"):season?.name||"Nightly lodging"),cents=Math.round(rate*100),key=`${name}|${cents}`;
+    const name=special?.name||(hasDiscount?(weekend?"Weekend discounted rate":"Weekday discounted rate"):seasonalRate?.name||"Nightly lodging"),cents=Math.round(rate*100),key=`${name}|${cents}`;
     const current=groups.get(key)||{name,amountCents:cents,quantity:0};current.quantity++;groups.set(key,current);
   }
   return [...groups.values()];
