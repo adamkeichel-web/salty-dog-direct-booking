@@ -33,7 +33,7 @@ const propertyGuestLimits={
 };
 const airbnbImportedDefaults={
   "beachfront-bliss":{nightlyRate:450,weekendRate:0,cleaningFee:200,taxRate:.12,petFee:0,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "deep-blue-dive":{nightlyRate:746,weekendRate:0,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",discount:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "deep-blue-dive":{nightlyRate:746,weekendRate:0,discountStart:"10-01",discountEnd:"11-01",weekdayDiscount:.55,weekendDiscount:.35,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",adjustment:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "sea-turtle":{nightlyRate:400,weekendRate:450,cleaningFee:200,taxRate:.12,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "seaside-vibes":{nightlyRate:115,weekendRate:0,cleaningFee:115,taxRate:.13,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "stars-and-sea":{nightlyRate:230,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:92,maxPets:1,minimumNights:2,showCalendarPricing:true},
@@ -122,9 +122,11 @@ function lodgingBreakdown(property,start,nights){
     const date=new Date(start);date.setUTCDate(date.getUTCDate()+offset);
     const iso=date.toISOString().slice(0,10),weekend=date.getUTCDay()===5||date.getUTCDay()===6,season=seasons.find(rate=>iso>=rate.start&&iso<rate.end);
     const monthDay=iso.slice(5),special=(Array.isArray(property.specialDiscounts)?property.specialDiscounts:[]).find(rule=>monthDay>=rule.start&&monthDay<rule.end);
-    const discount=Number(special?.discount??(weekend?property.weekendDiscount:property.weekdayDiscount));
+    const discountWindow=monthDay>=String(property.discountStart||"")&&monthDay<String(property.discountEnd||"99-99");
+    const discount=Number(special?.discount??(discountWindow?(weekend?property.weekendDiscount:property.weekdayDiscount):0));
     const hasDiscount=Number.isFinite(discount)&&discount>0&&discount<1;
-    const rate=hasDiscount?base*(1-discount):season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
+    const baseRate=hasDiscount?base*(1-discount):season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
+    const adjustment=Number(special?.adjustment||0),rate=baseRate*(Number.isFinite(adjustment)?1+adjustment:1);
     const name=special?.name||(hasDiscount?(weekend?"Weekend discounted rate":"Weekday discounted rate"):season?.name||"Nightly lodging"),cents=Math.round(rate*100),key=`${name}|${cents}`;
     const current=groups.get(key)||{name,amountCents:cents,quantity:0};current.quantity++;groups.set(key,current);
   }
