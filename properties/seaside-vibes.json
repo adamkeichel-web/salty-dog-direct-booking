@@ -21,16 +21,54 @@
     "Walkable dining"
   ],
   "airbnb": "https://www.airbnb.com/rooms/1348764785597345486",
-  "reviews": {"rating": 4.94, "count": 34, "themes": ["the waterfront view", "hospitality", "location", "cleanliness"], "testimonial": {"guest": "Zykeria", "stars": 5, "quote": "Perfect place for a couple’s getaway—quiet, great view, and the place had everything we needed."}},
-  "image": "/assets/properties/seaside-vibes/01.jpg",
+  "reviews": {
+    "rating": 4.94,
+    "count": 34,
+    "themes": [
+      "the waterfront view",
+      "hospitality",
+      "location",
+      "cleanliness"
+    ],
+    "testimonial": {
+      "guest": "Zykeria",
+      "stars": 5,
+      "quote": "Perfect place for a couple’s getaway—quiet, great view, and the place had everything we needed."
+    }
+  },
+  "image": "/assets/properties/seaside-vibes/01.jpeg",
   "gallery": [
-    "/assets/properties/seaside-vibes/01.jpg",
-    "/assets/properties/seaside-vibes/02.jpg",
-    "/assets/properties/seaside-vibes/03.jpg",
-    "/assets/properties/seaside-vibes/04.jpg",
-    "/assets/properties/seaside-vibes/05.jpg",
-    "/assets/properties/seaside-vibes/06.jpg",
-    "/assets/properties/seaside-vibes/07.jpg",
-    "/assets/properties/seaside-vibes/08.jpg"
+    "/assets/properties/seaside-vibes/01.jpeg",
+    "/assets/properties/seaside-vibes/02.jpeg",
+    "/assets/properties/seaside-vibes/03.jpeg",
+    "/assets/properties/seaside-vibes/04.jpeg",
+    "/assets/properties/seaside-vibes/05.jpeg",
+    "/assets/properties/seaside-vibes/06.jpeg",
+    "/assets/properties/seaside-vibes/07.jpeg",
+    "/assets/properties/seaside-vibes/08.jpeg",
+    "/assets/properties/seaside-vibes/09.jpeg",
+    "/assets/properties/seaside-vibes/10.jpeg",
+    "/assets/properties/seaside-vibes/11.jpeg",
+    "/assets/properties/seaside-vibes/12.jpeg",
+    "/assets/properties/seaside-vibes/13.jpeg",
+    "/assets/properties/seaside-vibes/14.jpeg",
+    "/assets/properties/seaside-vibes/15.jpeg",
+    "/assets/properties/seaside-vibes/16.jpeg",
+    "/assets/properties/seaside-vibes/17.jpeg",
+    "/assets/properties/seaside-vibes/18.jpeg",
+    "/assets/properties/seaside-vibes/19.jpeg",
+    "/assets/properties/seaside-vibes/20.jpeg",
+    "/assets/properties/seaside-vibes/21.jpeg",
+    "/assets/properties/seaside-vibes/22.jpeg",
+    "/assets/properties/seaside-vibes/23.jpeg",
+    "/assets/properties/seaside-vibes/24.jpeg",
+    "/assets/properties/seaside-vibes/25.jpeg",
+    "/assets/properties/seaside-vibes/26.jpeg",
+    "/assets/properties/seaside-vibes/27.jpeg",
+    "/assets/properties/seaside-vibes/28.jpeg",
+    "/assets/properties/seaside-vibes/29.jpeg",
+    "/assets/properties/seaside-vibes/30.png",
+    "/assets/properties/seaside-vibes/31.jpeg",
+    "/assets/properties/seaside-vibes/32.jpeg"
   ]
 }
