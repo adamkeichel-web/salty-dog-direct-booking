@@ -28,12 +28,12 @@ const allowedProperties=new Set([
   "stars-and-sea","the-salty-dog","waterfront-paradise"
 ]);
 const propertyGuestLimits={
-  "beachfront-bliss":7,"deep-blue-dive":18,"sea-turtle":10,"seaside-vibes":4,
+  "beachfront-bliss":7,"deep-blue-dive":16,"sea-turtle":10,"seaside-vibes":4,
   "stars-and-sea":4,"the-salty-dog":10,"waterfront-paradise":4
 };
 const airbnbImportedDefaults={
   "beachfront-bliss":{nightlyRate:450,weekendRate:0,cleaningFee:200,taxRate:.12,petFee:0,maxPets:1,minimumNights:3,showCalendarPricing:true},
-  "deep-blue-dive":{nightlyRate:746,weekendRate:0,cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
+  "deep-blue-dive":{nightlyRate:746,weekendRate:0,weekdayDiscount:.55,weekendDiscount:.35,specialDiscounts:[{name:"Halloween rate",start:"10-29",end:"11-01",discount:.10}],cleaningFee:350,taxRate:.12,petFee:143,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "sea-turtle":{nightlyRate:400,weekendRate:450,cleaningFee:200,taxRate:.12,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "seaside-vibes":{nightlyRate:115,weekendRate:0,cleaningFee:115,taxRate:.13,petFee:75,maxPets:1,minimumNights:3,showCalendarPricing:true},
   "stars-and-sea":{nightlyRate:230,weekendRate:0,cleaningFee:103,taxRate:.13,petFee:92,maxPets:1,minimumNights:2,showCalendarPricing:true},
@@ -49,7 +49,7 @@ function getBookingConfig(env){
   let config={};try{config=JSON.parse(env.DIRECT_BOOKING_CONFIG||"{}")}catch{}
   for(const [slug,imported] of Object.entries(airbnbImportedDefaults)){
     const current=config[slug]||{},placeholder=Number(current.nightlyRate)===10&&Number(current.cleaningFee)===5&&Number(current.taxRate||0)===0;
-    if(placeholder)config[slug]={...current,...imported};
+    config[slug]=placeholder?{...current,...imported}:{...imported,...current};
   }
   return config;
 }
@@ -121,8 +121,11 @@ function lodgingBreakdown(property,start,nights){
   for(let offset=0;offset<nights;offset++){
     const date=new Date(start);date.setUTCDate(date.getUTCDate()+offset);
     const iso=date.toISOString().slice(0,10),weekend=date.getUTCDay()===5||date.getUTCDay()===6,season=seasons.find(rate=>iso>=rate.start&&iso<rate.end);
-    const rate=season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
-    const name=season?.name||"Nightly lodging",cents=Math.round(rate*100),key=`${name}|${cents}`;
+    const monthDay=iso.slice(5),special=(Array.isArray(property.specialDiscounts)?property.specialDiscounts:[]).find(rule=>monthDay>=rule.start&&monthDay<rule.end);
+    const discount=Number(special?.discount??(weekend?property.weekendDiscount:property.weekdayDiscount));
+    const hasDiscount=Number.isFinite(discount)&&discount>0&&discount<1;
+    const rate=hasDiscount?base*(1-discount):season?(weekend&&season.weekendRate>0?season.weekendRate:season.nightlyRate):(weekend&&baseWeekend>0?baseWeekend:base);
+    const name=special?.name||(hasDiscount?(weekend?"Weekend discounted rate":"Weekday discounted rate"):season?.name||"Nightly lodging"),cents=Math.round(rate*100),key=`${name}|${cents}`;
     const current=groups.get(key)||{name,amountCents:cents,quantity:0};current.quantity++;groups.set(key,current);
   }
   return [...groups.values()];
@@ -326,6 +329,9 @@ export default{
         enabled,
         nightlyRate:enabled?property.nightlyRate:null,
         weekendRate:enabled?(property.weekendRate||null):null,
+        weekdayDiscount:enabled?(property.weekdayDiscount||null):null,
+        weekendDiscount:enabled?(property.weekendDiscount||null):null,
+        specialDiscounts:enabled?(property.specialDiscounts||[]):[],
         seasonalRates:enabled?seasonalRates(property):[],
         cleaningFee:enabled?(property.cleaningFee||0):null,
         otherFees:enabled?otherFees(property):[],
