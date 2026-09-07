@@ -88,7 +88,7 @@ function cleanSettings(input){
     guests:number(source.guests),bedrooms:number(source.bedrooms),bathrooms:number(source.bathrooms),
     highlights:(Array.isArray(source.highlights)?source.highlights:[]).map(value=>text(value,160)).filter(Boolean).slice(0,30),
     tags:(Array.isArray(source.tags)?source.tags:[]).map(value=>text(value,60).toLowerCase()).filter(Boolean).slice(0,30),
-    photoOrder:(Array.isArray(source.photoOrder)?source.photoOrder:[]).map(Number).filter(value=>Number.isInteger(value)&&value>0&&value<=40).slice(0,40)
+    photoOrder:(Array.isArray(source.photoOrder)?source.photoOrder:[]).map(Number).filter(value=>Number.isInteger(value)&&value>0&&value<=200).slice(0,200)
   },pricing:{
     nightlyRate:number(pricing.nightlyRate),weekendRate:number(pricing.weekendRate),cleaningFee:number(pricing.cleaningFee),taxRate:Math.min(number(pricing.taxRate),1),petFee:number(pricing.petFee),maxPets:Math.min(Math.floor(number(pricing.maxPets)),10),minimumNights:Math.max(1,Math.min(Math.floor(number(pricing.minimumNights)),30)),showCalendarPricing:pricing.showCalendarPricing===true,
     otherFees:(Array.isArray(pricing.otherFees)?pricing.otherFees:[]).map(fee=>({name:text(fee?.name,80),amount:number(fee?.amount)})).filter(fee=>fee.name).slice(0,20),
