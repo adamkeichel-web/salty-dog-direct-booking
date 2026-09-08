@@ -470,7 +470,7 @@
               .slice(0, 5)
               .map(
                 (x, i) =>
-                  `<button type="button" data-photo-index="${i}" aria-label="Open ${p.name} photo ${i + 1}"><span class="photo-tile" role="img" aria-label="${p.name} property photo ${i + 1}" style="background-image:${cssUrl(x)}"></span></button>`,
+                  `<button type="button" data-photo-index="${i}" aria-label="Open ${p.name} photo ${i + 1}"><span class="photo-tile" role="img" aria-label="${p.name} property photo ${i + 1}" style='background-image:${cssUrl(x)}'></span></button>`,
               )
               .join("") +
             `<button class="view-all" type="button" data-photo-index="0">View all ${photoSet.length} photos</button>`;
