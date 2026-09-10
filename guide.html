@@ -17,7 +17,17 @@
     .area-copy h2{font-size:30px;line-height:1.1;margin:10px 0 6px;color:#fff}
     .area-copy p{margin:0;color:#eef8f8}
     .area-link{display:inline-block;margin-top:13px;font-weight:900;border-bottom:2px solid #fff}
-    @media(max-width:760px){.area-preview{grid-template-columns:1fr}.area-photo{min-height:285px}}
+    .map-section{margin:0 0 34px;border:1px solid var(--line);border-radius:24px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+    .map-heading{display:flex;justify-content:space-between;align-items:end;gap:24px;padding:25px 26px 20px}
+    .map-heading small{display:block;color:var(--teal);font-weight:900;text-transform:uppercase;letter-spacing:.12em}
+    .map-heading h2{margin:4px 0 0;color:var(--navy);font-size:clamp(25px,4vw,36px);line-height:1.1}
+    .map-heading p{max-width:480px;margin:0;color:var(--muted)}
+    .map-frame{position:relative;height:390px;background:#dcebea}
+    .map-frame iframe{width:100%;height:100%;border:0;display:block}
+    .map-links{display:flex;gap:10px;flex-wrap:wrap;padding:17px 26px 22px}
+    .map-links a{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:999px;color:var(--navy);font-weight:850;background:#fff}
+    .map-links a:hover{border-color:var(--teal);background:var(--foam)}
+    @media(max-width:760px){.area-preview{grid-template-columns:1fr}.area-photo{min-height:285px}.map-heading{display:block}.map-heading p{margin-top:10px}.map-frame{height:310px}}
   </style>
 </head>
 <body>
@@ -28,6 +38,11 @@
       <a class="area-photo" href="/property.html?stay=beachfront-bliss"><img src="/assets/properties/beachfront-bliss/01.jpg" alt="White-sand shoreline at Navarre Beach"><span class="area-copy"><small>4 nearby stays</small><h2>Navarre & Navarre Beach</h2><p>Quiet Gulf days, family homes, private pools, and sugar-white sand.</p><span class="area-link">Preview a Navarre Beach stay →</span></span></a>
       <a class="area-photo" href="/property.html?stay=waterfront-paradise"><img src="/assets/properties/waterfront-paradise/01.jpg" alt="Waterfront dock on Santa Rosa Sound near Fort Walton Beach"><span class="area-copy"><small>3 nearby stays</small><h2>Fort Walton Beach</h2><p>Sound-side views, resort pools, Okaloosa Island, and easy Destin access.</p><span class="area-link">Preview a waterfront stay →</span></span></a>
     </div>
+    <section class="map-section" aria-labelledby="area-map-title">
+      <div class="map-heading"><div><small>Find your favorite stretch of coast</small><h2 id="area-map-title">Explore the area.</h2></div><p>See how Navarre Beach, Fort Walton Beach, Okaloosa Island, and Destin connect along Florida’s Emerald Coast.</p></div>
+      <div class="map-frame"><iframe title="Google Map of Navarre and Fort Walton Beach" src="https://maps.google.com/maps?q=30.405,-86.85&amp;z=10&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>
+      <div class="map-links"><a href="https://www.google.com/maps/search/?api=1&amp;query=Navarre+Beach+Florida" target="_blank" rel="noopener">Navarre Beach map ↗</a><a href="https://www.google.com/maps/search/?api=1&amp;query=Fort+Walton+Beach+Florida" target="_blank" rel="noopener">Fort Walton Beach map ↗</a><a href="https://www.google.com/maps/search/?api=1&amp;query=Okaloosa+Island+Florida" target="_blank" rel="noopener">Okaloosa Island map ↗</a></div>
+    </section>
     <div class="grid">
       <article class="card"><h2>Navarre Beach</h2><p>Known for white sand, clear Gulf water, a relaxed pace, and one of the Gulf Coast’s longest fishing piers.</p></article>
       <article class="card"><h2>Fort Walton Beach</h2><p>A convenient hub for Santa Rosa Sound, Okaloosa Island, waterfront restaurants, family attractions, and quick trips toward Destin.</p></article>
